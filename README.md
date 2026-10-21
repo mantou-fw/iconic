@@ -1,92 +1,169 @@
-# HTIFA-Schema
+# iconic
 
-An AV schematic canvas: draw signal-flow diagrams, rack elevations and a 3D room model — and let an AI agent build them for you over MCP.
+<img src="public/icon.svg" width="88" alt="iconic icon" />
 
-Built with Bun, React 19, React Flow (@xyflow/react), Three.js (via react-three-fiber) and Tailwind CSS 4. Ships as a web app and a Tauri desktop wrapper.
+AV signal-flow diagrams, equipment racks and 3D room layouts. Built with **TanStack Start, React 19 and Node.js**, packaged with **Electron** for macOS and Windows.
 
-## Features
+**English · 繁體中文 · 日本語** — choose **iconic → Language**. The language preference is saved locally. Hover or focus toolbar buttons to see descriptions and keyboard shortcuts.
 
-- **Signal-flow canvas** — draw AV devices, zones, racks, title blocks, memos, text, shapes, images and freehand drawings on a React Flow canvas
-- **Cable routing** — orthogonal cable routing with obstacle avoidance (`src/lib/routing.ts`)
-- **3D room model** — a react-three-fiber room view with metres, item kinds and per-kind size/mount defaults
-- **Editable signal legend** — audio / video / network / control / power by default, fully editable (`src/lib/signal-types.ts`)
-- **Exports** — PNG / SVG / PDF, a self-contained HTML viewer, and XLSX cable schedules
-- **Persistence** — state lives in browser IndexedDB (Dexie, `av-schematic-db`); no server-side database
-- **AI via MCP** — a Claude agent (or any MCP client) can draw on the canvas live over a WebSocket relay
+## Download and install / 下載安裝 / ダウンロード
 
-## Getting started
+Download from [GitHub Releases](https://github.com/mantou-fw/iconic/releases/latest):
 
-```bash
-bun install
-bun dev                       # serves the canvas + the AI bridge on :4321
-open http://localhost:4321
-```
-
-Override the port with `PORT`, e.g. `PORT=8080 bun dev`.
-
-## Using it with an AI agent
-
-Register the MCP server once:
-
-```bash
-claude mcp add av-schematic -- bun /Volumes/Project/HTIFA-Schema/mcp/server.ts
-```
-
-Then ask Claude to *"build a 4-zone QSC audio system on the canvas"* and watch the drawing appear live in the browser tab.
-
-## How the pieces fit
-
-```
-Claude / MCP client
-        │  stdio (MCP tools)
-        ▼
-mcp/server.ts ──── ws://localhost:4321/ws?role=ai ────┐
-                                                      │  Bun relay
-browser canvas ─── ws://localhost:4321/ws?role=canvas ┘  (src/index.ts)
-```
-
-- `src/index.ts` is a **dumb relay**. Anything an `ai` socket sends is republished to every `canvas` socket, and vice versa. No command logic lives in the server.
-- `src/lib/ai-bridge.ts` holds the **message contract** (`AICommand` / `AIReply`).
-- `src/components/canvas.tsx` (`runCommand`) **executes** the commands against React Flow state.
-- `mcp/server.ts` wraps that contract in typed MCP tools so an agent never sees the socket.
-
-## Scripts
-
-| Command | What it does |
+| File | Use |
 | --- | --- |
-| `bun dev` | Start the dev server with hot reload on :4321 |
-| `bun start` | Run in production mode |
-| `bun run build` | Build the web bundle (`build.ts`) |
-| `bun test` | Run the test suite |
-| `bun run desktop:dev` | Build the sidecar + run the Tauri desktop app |
-| `bun run desktop:build` | Build the sidecar + package the Tauri desktop app |
+| `iconic-0.2.0-arm64.dmg` | macOS Apple Silicon: open the DMG and drag iconic to Applications |
+| `iconic-0.2.0-x64.dmg` | macOS Intel: open the DMG and drag iconic to Applications |
+| `iconic-0.2.0-x64-Setup.exe` | Windows x64: run the installer |
+| `iconic-web-0.2.0.zip` | Portable web server; Node.js 22.20+ required |
+| `iconic-agent-pack-0.2.0.zip` | MCP server, skill and installer for an AI client |
+| `SHA256SUMS.txt` | SHA-256 checksums for the release downloads |
 
-## Repository map
+The desktop app bundles its Node runtime. **Node.js is only required separately for the web server or MCP agent pack.** The current installers are unsigned/ad-hoc signed and macOS is not notarized. If macOS blocks opening the downloaded app, review it in System Settings → Privacy & Security → Open Anyway.
 
-| Path | Role |
-| --- | --- |
-| `src/index.ts` | Bun server: HTML routes + `/ws` relay (port 4321, override with `PORT`) |
-| `src/components/canvas.tsx` | The whole canvas: tools, nodes, edges, history, AI command handler |
-| `src/components/nodes/` | Node renderers: device, zone, rack, title block, memo, text, shape, image, drawing |
-| `src/components/edges/` | Cable (`labeled-edge`) and plain `arrow-edge` renderers |
-| `src/lib/ai-bridge.ts` | `AICommand` / `AIReply` types + the reconnecting canvas socket hook |
-| `src/lib/db.ts` | Dexie schema (nodes, edges, drawings, viewport, settings, room, roomItems, legend) |
-| `src/lib/room.ts` | 3D room model: metres, item kinds, per-kind size/mount defaults |
-| `src/lib/signal-types.ts` | The editable signal legend (audio/video/network/control/power by default) |
-| `src/lib/routing.ts`, `obstacles.ts`, `lanes.ts` | Orthogonal cable routing and obstacle avoidance |
-| `src/lib/export-*.ts`, `schedules.ts` | PNG/SVG/PDF, self-contained HTML viewer, XLSX schedules |
-| `mcp/server.ts` | MCP stdio server exposing typed tools |
-| `scripts/` | CLI (`av.ts`), MCP smoke test (`mcp-check.ts`), demo builds |
-| `src-tauri/` | Desktop wrapper; the Bun server ships as a sidecar binary |
+macOS：將 app 拖至「應用程式」。Windows：執行安裝程式。開啟後在 **iconic → Language → 繁體中文** 切換語言。
 
-## Documentation
+macOS はアプリケーションフォルダーへドラッグ、Windows はインストーラーを実行します。起動後、**iconic → Language → 日本語** を選択できます。
 
-| Document | What's in it |
-| --- | --- |
-| [`doc/canvas-guide.md`](doc/canvas-guide.md) | Using the canvas by hand — tools, ports, cables, zones, racks, 3D room, exports |
-| [`doc/mcp-integration.md`](doc/mcp-integration.md) | Connecting Claude (or any MCP client) to a running canvas, and the full tool reference |
-| [`doc/bridge-protocol.md`](doc/bridge-protocol.md) | The raw WebSocket command contract, for scripts that skip MCP |
+For the portable web archive, extract it and run inside its folder:
 
-## Requirements
+```sh
+NITRO_HOST=127.0.0.1 NITRO_PORT=4321 npm start
+```
 
-- [Bun](https://bun.com) 1.x (this project defaults to Bun everywhere — no Node.js/npm needed)
+PowerShell:
+
+```powershell
+$env:NITRO_HOST="127.0.0.1"
+$env:NITRO_PORT="4321"
+npm start
+```
+
+Open [localhost:4321](http://localhost:4321). Keep the control server on loopback.
+
+## Install MCP and the skill / 安裝 MCP 與 Skill / MCP・スキルの導入
+
+1. Open iconic and keep a drawing open.
+2. Choose **iconic → AI guide** (繁體中文：**AI 使用說明**；日本語：**AI ガイド**).
+3. Select Codex, Claude Code or another MCP client and download the **Agent pack**. You can also download it from Releases.
+4. Extract the ZIP to a permanent folder. Install Node.js **22.20+** and npm. The MCP dependencies are bundled; no `npm install` is needed in the pack.
+5. Open a terminal in the extracted `iconic-agent-pack` folder and run the appropriate command:
+
+```sh
+# Preview settings changes first
+node scripts/setup-agent.mjs --agent codex --with-skill --dry-run
+
+# Codex: register MCP and install the skill
+node scripts/setup-agent.mjs --agent codex --with-skill
+
+# Claude Code: register MCP and install the skill
+node scripts/setup-agent.mjs --agent claude-code --with-skill
+
+# Another client: print configuration without modifying settings
+node scripts/setup-agent.mjs --agent generic
+```
+
+The installer writes the selected client's **user-level** MCP registration. `--with-skill` installs via Vercel skills CLI 1.7.4 and needs internet access. Reload the AI client afterward. Keep the pack in the same folder because MCP uses its absolute path. Use `--url http://localhost:8080` for a different app port. Existing registrations pointing elsewhere are preserved unless you explicitly add `--replace`.
+
+The final connection check is read-only. Exit code **2** means settings were saved but the app connection is not verified. Keep the app open and retry:
+
+```sh
+node scripts/mcp-check.mjs
+# Different port on macOS/Linux:
+AV_CANVAS_URL=http://localhost:8080 node scripts/mcp-check.mjs
+```
+
+To install only the skill directly from this repository:
+
+```sh
+npx skills@1.7.4 add https://github.com/mantou-fw/iconic --skill av-schematic -a codex -a claude-code -g --copy
+```
+
+**Installing the skill alone does not register MCP.** In the pack or source checkout, replace the GitHub URL with `.` to install the local skill. Other clients need their supported skills agent ID.
+
+Manual MCP registration from a source checkout (after `npm ci`):
+
+```sh
+codex mcp add av-schematic -- node /absolute/path/to/iconic/mcp/server.mjs
+```
+
+Generic MCP configuration (use your actual absolute path):
+
+```json
+{
+  "mcpServers": {
+    "av-schematic": {
+      "command": "node",
+      "args": ["/absolute/path/to/iconic-agent-pack/mcp/server.mjs"],
+      "env": { "AV_CANVAS_URL": "http://localhost:4321" }
+    }
+  }
+}
+```
+
+Ask Codex: **“Use $av-schematic. Read the current canvas, then add a meeting-room AV system while preserving existing content.”**
+
+繁體中文：「使用 av-schematic，先讀取現有畫布，再加入一套會議室 AV 系統，保留原有內容。」
+
+日本語：「av-schematic を使い、現在のキャンバスを読み取ってから、既存の内容を残して会議室の AV システムを追加してください。」
+
+The MCP server exposes 15 tools for devices, zones, cables, racks, layouts and 3D rooms. Read the canvas before editing; clear or delete only when requested. JSON and PNG/SVG/PDF/HTML/XLSX exports are manual app features. See [MCP setup](doc/mcp-integration.md), [agent distribution](doc/agent-distribution.md) and the [skill](.agents/skills/av-schematic/SKILL.md).
+
+## Development
+
+Requires Node.js 22.20+ and npm. Use Node.js and npm throughout.
+
+```sh
+git clone https://github.com/mantou-fw/iconic.git
+cd iconic
+npm ci
+npm run dev                 # http://localhost:4321
+npm run desktop:dev         # Electron + TanStack Start
+npm run typecheck
+npm test
+```
+
+Use `PORT` for another development port. Browser, desktop development and packaged profiles have separate IndexedDB storage. Project JSON import/export transfers drawings. The first iconic desktop launch copies the previous app profile once, retaining the original. The database name (`av-schematic-db`) and JSON format (`av-schematic`) stay compatible.
+
+## Build and release
+
+```sh
+npm run build                    # TanStack Start + Nitro Node server
+npm start                        # Serve .output/server/index.mjs
+npm run desktop:pack             # Unpacked Electron app
+npm run desktop:build:mac        # Apple Silicon + Intel DMGs; requires macOS
+npm run desktop:build:windows    # Windows x64 installer
+npm run agents:pack              # Standalone MCP/skill ZIP
+npm run release:web              # Portable Node server ZIP, after npm run build
+npm run icons:build              # Render SVG to PNG/ICO; also ICNS on macOS
+```
+
+Artifacts are written under `release/`. `npm run build` and desktop builds also refresh the in-app `/downloads/iconic-agent-pack.zip` download.
+
+The [release workflow](.github/workflows/release.yml) tests and builds on native macOS and Windows runners. Pushing a `v*` tag publishes DMGs, EXE, agent pack, web archive and SHA-256 checksums. Manual workflow dispatch builds downloadable Actions artifacts without creating a release. Native Windows builds include executable icon metadata; cross builds from macOS can create an installer but skip PE resource editing without Windows tools. Configure signing/notarization separately before distributing signed builds.
+
+```sh
+git tag v0.2.0
+git push origin main --tags
+```
+
+## Architecture
+
+```text
+AI client → Node MCP stdio (mcp/server.mjs)
+                    ↓ fetch
+           TanStack Start /api/canvas
+                    ↕ command ID / reply
+           React Flow + Three.js (Electron or browser)
+```
+
+- `src/routes/`, `src/router.tsx`, `src/server.ts`: routes, document and production CSP nonces.
+- `src/server/canvas-broker.mjs`: active drawing lease, correlated commands, timeouts and expiry.
+- `src/server/canvas-handler.ts`: loopback Host and browser Origin checks.
+- `src/lib/ai-bridge.ts`: renderer validation, polling and responses after React commits.
+- `src/lib/i18n.ts`, `src/locales/`: language preference and translation catalogs. Add each translation key to all three JSON files; user-authored drawing content is never translated.
+- `desktop/`: isolated Electron renderer and local server lifecycle. Node integration is disabled, context isolation and sandboxing stay enabled.
+- `.agents/skills/av-schematic/`: portable canonical skill, with relative setup and tool references.
+- `src-tauri/`: historical rollback material, excluded from the active desktop build.
+
+The editor includes AV devices, zones, racks, title blocks, text, memos, shapes, images, pen strokes, cable routing, legends, 3D placement and project/image/PDF/HTML/XLSX exports. See the [canvas guide](doc/canvas-guide.md) and [changelog](CHANGELOG.md).

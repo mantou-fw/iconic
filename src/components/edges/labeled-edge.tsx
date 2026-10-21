@@ -1,3 +1,4 @@
+import { useT } from "@/lib/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BaseEdge,
@@ -41,6 +42,7 @@ export function LabeledEdge({
   data,
   selected,
 }: EdgeProps) {
+  const t = useT();
   const { updateEdgeData, screenToFlowPosition } = useReactFlow();
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -82,7 +84,10 @@ export function LabeledEdge({
     ],
   );
 
-  const path = useMemo(() => roundedPath(route.points, corner), [route.points, corner]);
+  const path = useMemo(
+    () => roundedPath(route.points, corner),
+    [route.points, corner],
+  );
   const labelPoint = useMemo(() => midpointOf(route.points), [route.points]);
 
   useEffect(() => {
@@ -117,7 +122,10 @@ export function LabeledEdge({
 
   /** Double-click a grab dot to hand that axis back to auto-routing. */
   const reset = (axis: "x" | "y") =>
-    updateEdgeData(id, axis === "x" ? { midX: undefined } : { midY: undefined });
+    updateEdgeData(
+      id,
+      axis === "x" ? { midX: undefined } : { midY: undefined },
+    );
 
   const startEditing = () => {
     setDraft(label);
@@ -144,7 +152,11 @@ export function LabeledEdge({
     >
       {/* Padding gives the small dot a comfortable grab area. */}
       <div
-        title={`Drag to move the cable ${axis === "x" ? "left/right" : "up/down"} · double-click to reset`}
+        title={t(
+          axis === "x"
+            ? "Drag left/right to move the cable · double-click to reset"
+            : "Drag up/down to move the cable · double-click to reset",
+        )}
         onPointerDown={(e) => beginDrag(e, axis)}
         onDoubleClick={(e) => {
           e.stopPropagation();
@@ -195,7 +207,7 @@ export function LabeledEdge({
               ref={inputRef}
               value={draft}
               autoFocus
-              placeholder="Cable ID"
+              placeholder={t("Cable ID")}
               onChange={(e) => setDraft(e.target.value)}
               onBlur={commit}
               onKeyDown={(e) => {
@@ -208,7 +220,7 @@ export function LabeledEdge({
           ) : label ? (
             <button
               onClick={startEditing}
-              title="Edit label"
+              title={t("Edit label")}
               className={`${chip} px-1.5 py-0.5 font-mono text-[9px] uppercase leading-tight`}
               style={{ borderColor: color }}
             >
@@ -219,7 +231,8 @@ export function LabeledEdge({
               onClick={startEditing}
               className={`${chip} border-dashed px-1.5 py-0.5 font-mono text-[9px] leading-tight text-muted-foreground hover:text-foreground`}
             >
-              + label
+              {" "}
+              {t("+ label")}{" "}
             </button>
           ) : null}
         </div>

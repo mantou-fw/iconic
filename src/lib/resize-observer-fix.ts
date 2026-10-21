@@ -4,9 +4,8 @@
  * one pass, so it reschedules. React Flow trips it constantly because
  * measuring a node can change layout, which the observer then re-reports.
  *
- * Suppressing the error event does not work here — Bun's dev overlay installs
- * its own handler from a script in <head>, before any of our modules run, so
- * it always sees the event first. Instead, break the feedback loop at source:
+ * Break the feedback loop at its source, before any development overlay
+ * observes it:
  * deliver observations on the next animation frame, which lets layout settle
  * before the callback runs so the notice is never raised at all.
  *

@@ -1,3 +1,4 @@
+import { useT } from "@/lib/i18n";
 import { useRef, useState } from "react";
 import {
   BaseEdge,
@@ -7,7 +8,11 @@ import {
   type EdgeProps,
 } from "@xyflow/react";
 
-import { arrowMarkers, nextArrowDirection, type ArrowDirection } from "@/lib/arrow-direction";
+import {
+  arrowMarkers,
+  nextArrowDirection,
+  type ArrowDirection,
+} from "@/lib/arrow-direction";
 
 export type ArrowEdgeData = {
   /** Short caption shown on the connection, e.g. "RTMP Out". */
@@ -42,6 +47,7 @@ export function ArrowEdge({
   data,
   selected,
 }: EdgeProps) {
+  const t = useT();
   const { updateEdgeData, setEdges } = useReactFlow();
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -59,7 +65,11 @@ export function ArrowEdge({
     setEdges((eds) =>
       eds.map((e) =>
         e.id === id
-          ? { ...e, data: { ...e.data, direction: next }, ...arrowMarkers(next, color) }
+          ? {
+              ...e,
+              data: { ...e.data, direction: next },
+              ...arrowMarkers(next, color),
+            }
           : e,
       ),
     );
@@ -93,7 +103,13 @@ export function ArrowEdge({
 
   return (
     <>
-      <BaseEdge id={id} path={path} markerStart={markerStart} markerEnd={markerEnd} style={style} />
+      <BaseEdge
+        id={id}
+        path={path}
+        markerStart={markerStart}
+        markerEnd={markerEnd}
+        style={style}
+      />
       <path
         d={path}
         fill="none"
@@ -108,7 +124,7 @@ export function ArrowEdge({
       <EdgeLabelRenderer>
         {(showHandles || direction !== "forward") && (
           <button
-            title={`Arrow direction: ${direction} — click to change`}
+            title={`${t("Arrow direction")}: ${t(direction)} — ${t("Click to change")}`}
             onClick={cycleDirection}
             className={`${chip} nodrag nopan absolute flex h-5 w-5 items-center justify-center text-[11px] leading-none`}
             style={{
@@ -134,7 +150,7 @@ export function ArrowEdge({
               ref={inputRef}
               value={draft}
               autoFocus
-              placeholder="Label"
+              placeholder={t("Label")}
               onChange={(e) => setDraft(e.target.value)}
               onBlur={commit}
               onKeyDown={(e) => {
@@ -147,7 +163,7 @@ export function ArrowEdge({
           ) : label ? (
             <button
               onClick={startEditing}
-              title="Edit label"
+              title={t("Edit label")}
               className={`${chip} px-1.5 py-0.5 font-mono text-[9px] uppercase leading-tight`}
               style={{ borderColor: color }}
             >
@@ -158,7 +174,8 @@ export function ArrowEdge({
               onClick={startEditing}
               className={`${chip} border-dashed px-1.5 py-0.5 font-mono text-[9px] leading-tight text-muted-foreground hover:text-foreground`}
             >
-              + label
+              {" "}
+              {t("+ label")}{" "}
             </button>
           ) : null}
         </div>

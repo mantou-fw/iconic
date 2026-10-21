@@ -1,9 +1,18 @@
+import { t, getLocale } from "./i18n";
 import type { Edge, Node } from "@xyflow/react";
 
 import { orthogonalRoute, roundedPath } from "./routing";
-import { DEFAULT_SIGNALS, findSignal, signalColor, type SignalDef } from "./signal-types";
+import {
+  DEFAULT_SIGNALS,
+  findSignal,
+  signalColor,
+  type SignalDef,
+} from "./signal-types";
 import type { RoomItem, RoomSpec } from "./room";
-import type { AVDeviceData, DevicePort } from "@/components/nodes/av-device-node";
+import type {
+  AVDeviceData,
+  DevicePort,
+} from "@/components/nodes/av-device-node";
 import type { TitleBlockData } from "@/components/nodes/title-block";
 
 /**
@@ -34,7 +43,8 @@ const deviceHeight = (d: AVDeviceData) => {
   return HEADER_H + COLHEAD_H + rows * ROW_H + PAD_B;
 };
 
-const portY = (index: number) => HEADER_H + COLHEAD_H + index * ROW_H + ROW_H / 2;
+const portY = (index: number) =>
+  HEADER_H + COLHEAD_H + index * ROW_H + ROW_H / 2;
 
 /**
  * SVG text does not wrap or clip, so a long port name would run straight
@@ -103,7 +113,11 @@ function zoneSvg(n: Node, at: { x: number; y: number }) {
 </g>`;
 }
 
-function deviceSvg(n: Node, at: { x: number; y: number }, signals: SignalDef[]) {
+function deviceSvg(
+  n: Node,
+  at: { x: number; y: number },
+  signals: SignalDef[],
+) {
   const d = deviceOf(n);
   const ports = d.ports ?? [];
   const ins = ports.filter((p) => p.dir === "in");
@@ -166,7 +180,9 @@ function simpleNodeSvg(n: Node, at: { x: number; y: number }) {
   }
   if (n.type === "drawing") {
     const pts = (data.points as { x: number; y: number }[]) ?? [];
-    const dPath = pts.map((p, i) => `${i ? "L" : "M"} ${at.x + p.x} ${at.y + p.y}`).join(" ");
+    const dPath = pts
+      .map((p, i) => `${i ? "L" : "M"} ${at.x + p.x} ${at.y + p.y}`)
+      .join(" ");
     return `<path d="${dPath}" fill="none" stroke="${esc(data.color ?? "#dc2626")}"
       stroke-width="${Number(data.strokeWidth) || 2}" stroke-linecap="round" stroke-linejoin="round"/>`;
   }
@@ -191,8 +207,21 @@ function cableSvg(edge: Edge, ctx: Ctx) {
   const from = { x: sAt.x + W, y: sAt.y + portY(si) };
   const to = { x: tAt.x, y: tAt.y + portY(ti) };
 
-  const data = (edge.data ?? {}) as { midX?: number; midY?: number; lane?: number; label?: string };
-  const route = orthogonalRoute(from, to, "right", "left", data.midX, data.midY, data.lane ?? 0);
+  const data = (edge.data ?? {}) as {
+    midX?: number;
+    midY?: number;
+    lane?: number;
+    label?: string;
+  };
+  const route = orthogonalRoute(
+    from,
+    to,
+    "right",
+    "left",
+    data.midX,
+    data.midY,
+    data.lane ?? 0,
+  );
   const port = (sd.ports ?? []).filter((p) => p.dir === "out")[si];
   const signal = findSignal(ctx.signals, port?.signal).key;
   const color = signalColor(ctx.signals, signal);
@@ -206,9 +235,13 @@ function cableSvg(edge: Edge, ctx: Ctx) {
   <path d="${roundedPath(route.points)}" fill="none" stroke="${color}" stroke-width="2"
         marker-end="url(#arrow-${signal})"/>
   <path d="${roundedPath(route.points)}" fill="none" stroke="transparent" stroke-width="14" class="hit"/>
-  ${label ? `<g class="cable-label"><rect x="${mid.x - label.length * 3.2 - 5}" y="${mid.y - 20}"
+  ${
+    label
+      ? `<g class="cable-label"><rect x="${mid.x - label.length * 3.2 - 5}" y="${mid.y - 20}"
         width="${label.length * 6.4 + 10}" height="14" rx="4" class="chip"/>
-  <text x="${mid.x}" y="${mid.y - 10}" text-anchor="middle" class="cable-text">${esc(label)}</text></g>` : ""}
+  <text x="${mid.x}" y="${mid.y - 10}" text-anchor="middle" class="cable-text">${esc(label)}</text></g>`
+      : ""
+  }
 </g>`,
   };
 }
@@ -223,10 +256,14 @@ function roomPlanSvg(room: RoomSpec, items: RoomItem[]) {
 
   const grid: string[] = [];
   for (let x = 1; x < room.width; x++) {
-    grid.push(`<line x1="${pad + x * S}" y1="${pad}" x2="${pad + x * S}" y2="${pad + d}" class="grid"/>`);
+    grid.push(
+      `<line x1="${pad + x * S}" y1="${pad}" x2="${pad + x * S}" y2="${pad + d}" class="grid"/>`,
+    );
   }
   for (let z = 1; z < room.depth; z++) {
-    grid.push(`<line x1="${pad}" y1="${pad + z * S}" x2="${pad + w}" y2="${pad + z * S}" class="grid"/>`);
+    grid.push(
+      `<line x1="${pad}" y1="${pad + z * S}" x2="${pad + w}" y2="${pad + z * S}" class="grid"/>`,
+    );
   }
 
   const shapes = items
@@ -292,25 +329,36 @@ function scheduleRows(nodes: Node[], edges: Edge[]) {
     if (!from || !to) return [];
     const fp = (from.ports ?? []).find((p) => p.id === e.sourceHandle);
     const tp = (to.ports ?? []).find((p) => p.id === e.targetHandle);
-    return [{
-      id: e.id,
-      label: ((e.data as { label?: string })?.label ?? "").trim(),
-      signal: fp?.signal ?? "audio",
-      fromTag: from.tag ?? "",
-      fromPort: fp?.label ?? "",
-      fromConn: fp?.connector ?? "",
-      toTag: to.tag ?? "",
-      toPort: tp?.label ?? "",
-      toConn: tp?.connector ?? "",
-    }];
+    return [
+      {
+        id: e.id,
+        label: ((e.data as { label?: string })?.label ?? "").trim(),
+        signal: fp?.signal ?? "audio",
+        fromTag: from.tag ?? "",
+        fromPort: fp?.label ?? "",
+        fromConn: fp?.connector ?? "",
+        toTag: to.tag ?? "",
+        toPort: tp?.label ?? "",
+        toConn: tp?.connector ?? "",
+      },
+    ];
   });
 
-  const bom = new Map<string, { qty: number; mfr: string; model: string; desc: string }>();
+  const bom = new Map<
+    string,
+    { qty: number; mfr: string; model: string; desc: string }
+  >();
   for (const d of deviceRows) {
     const key = `${d.manufacturer}|${d.model || d.name}`;
     const row = bom.get(key);
     if (row) row.qty += 1;
-    else bom.set(key, { qty: 1, mfr: d.manufacturer, model: d.model, desc: d.name });
+    else
+      bom.set(key, {
+        qty: 1,
+        mfr: d.manufacturer,
+        model: d.model,
+        desc: d.name,
+      });
   }
 
   return { deviceRows, cableRows, bomRows: [...bom.values()] };
@@ -344,28 +392,44 @@ export function buildViewerHtml({
   const title = (titleNode?.data ?? {}) as Partial<TitleBlockData>;
 
   // Bounds across everything we are going to draw.
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
   for (const n of [...zones, ...devices, ...others]) {
     const at = absolute(n);
-    const w = n.type === "database" ? W : (typeof n.width === "number" ? n.width : 160) || 160;
+    const w =
+      n.type === "database"
+        ? W
+        : (typeof n.width === "number" ? n.width : 160) || 160;
     const h =
       n.type === "database"
         ? deviceHeight(deviceOf(n))
         : (typeof n.height === "number" ? n.height : 40) || 40;
-    minX = Math.min(minX, at.x); minY = Math.min(minY, at.y);
-    maxX = Math.max(maxX, at.x + w); maxY = Math.max(maxY, at.y + h);
+    minX = Math.min(minX, at.x);
+    minY = Math.min(minY, at.y);
+    maxX = Math.max(maxX, at.x + w);
+    maxY = Math.max(maxY, at.y + h);
   }
-  if (!Number.isFinite(minX)) { minX = 0; minY = 0; maxX = 800; maxY = 600; }
+  if (!Number.isFinite(minX)) {
+    minX = 0;
+    minY = 0;
+    maxX = 800;
+    maxY = 600;
+  }
   const M = 60;
   const viewBox = `${minX - M} ${minY - M} ${maxX - minX + M * 2} ${maxY - minY + M * 2}`;
 
   const cables = edges.map((e) => cableSvg(e, ctx)).filter(Boolean) as {
-    signal: string; svg: string;
+    signal: string;
+    svg: string;
   }[];
 
   const markers = signals
     .map(
-      (s) => `<marker id="arrow-${s.key}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6"
+      (
+        s,
+      ) => `<marker id="arrow-${s.key}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6"
       markerHeight="6" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="${s.color}"/></marker>`,
     )
@@ -385,7 +449,9 @@ export function buildViewerHtml({
 
   const legend = signals
     .map(
-      (s) => `<label class="sig"><input type="checkbox" checked data-signal="${s.key}">
+      (
+        s,
+      ) => `<label class="sig"><input type="checkbox" checked data-signal="${s.key}">
       <span class="dot" style="background:${s.color}"></span>${s.label}</label>`,
     )
     .join("");
@@ -399,17 +465,17 @@ export function buildViewerHtml({
     ["Drawn by", title.drawnBy],
   ]
     .filter(([, v]) => v)
-    .map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`)
+    .map(([k, v]) => `<div><dt>${esc(t(k ?? ""))}</dt><dd>${esc(v)}</dd></div>`)
     .join("");
 
   const table = (head: string[], rows: string[][], id: string) =>
-    `<table id="${id}"><thead><tr>${head.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead>
+    `<table id="${id}"><thead><tr>${head.map((h) => `<th>${esc(t(h))}</th>`).join("")}</tr></thead>
      <tbody>${rows
        .map((r) => `<tr>${r.map((c) => `<td>${esc(c)}</td>`).join("")}</tr>`)
        .join("")}</tbody></table>`;
 
   return `<!doctype html>
-<html lang="en" data-theme="light">
+<html lang="${getLocale()}" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -539,19 +605,19 @@ export function buildViewerHtml({
 </header>
 
 <nav>
-  <button data-tab="schematic" class="on">Schematic</button>
-  <button data-tab="room">Room plan</button>
-  <button data-tab="schedules">Schedules</button>
+  <button data-tab="schematic" class="on">${esc(t("Schematic"))}</button>
+  <button data-tab="room">${esc(t("Room plan"))}</button>
+  <button data-tab="schedules">${esc(t("Schedules"))}</button>
   <span class="spacer"></span>
-  <input id="search" type="search" placeholder="Find a device…">
-  <button class="tool" id="fit">Fit</button>
-  <button class="tool" id="themer">Dark</button>
+  <input id="search" type="search" placeholder="${esc(t("Find a device…"))}">
+  <button class="tool" id="fit">${esc(t("Fit"))}</button>
+  <button class="tool" id="themer">${esc(t("Dark"))}</button>
 </nav>
 
 <main>
   <section class="tab on" id="tab-schematic">
     <div id="stage">${schematic}</div>
-    <div class="hint">Drag to pan · scroll to zoom · click a device or cable</div>
+    <div class="hint">${esc(t("Drag to pan \u00b7 scroll to zoom \u00b7 click a device or cable"))}</div>
     <div class="legend">${legend}</div>
     <aside id="panel"></aside>
   </section>
@@ -560,24 +626,46 @@ export function buildViewerHtml({
     ${
       roomItems.length
         ? `<div class="planwrap">${roomPlanSvg(room, roomItems)}<div class="planlist" id="planlist"></div></div>`
-        : `<div class="empty">No room layout in this drawing.</div>`
+        : `<div class="empty">${esc(t("No room layout in this drawing."))}</div>`
     }
   </section>
 
   <section class="tab" id="tab-schedules">
     <div class="sheet">
-      <h2>Bill of materials</h2>
-      ${table(["Qty", "Manufacturer", "Model", "Description"],
-        bomRows.map((r) => [String(r.qty), r.mfr, r.model, r.desc]), "t-bom")}
-      <h2>Devices</h2>
-      ${table(["Tag", "Description", "Manufacturer", "Model", "In", "Out"],
-        deviceRows.map((r) => [r.tag, r.name, r.manufacturer, r.model, String(r.inputs), String(r.outputs)]), "t-dev")}
-      <h2>Cable schedule</h2>
-      ${table(["Cable", "Signal", "From", "Port", "Conn.", "To", "Port", "Conn."],
+      <h2>${esc(t("Bill of materials"))}</h2>
+      ${table(
+        ["Qty", "Manufacturer", "Model", "Description"],
+        bomRows.map((r) => [String(r.qty), r.mfr, r.model, r.desc]),
+        "t-bom",
+      )}
+      <h2>${esc(t("Devices"))}</h2>
+      ${table(
+        ["Tag", "Description", "Manufacturer", "Model", "In", "Out"],
+        deviceRows.map((r) => [
+          r.tag,
+          r.name,
+          r.manufacturer,
+          r.model,
+          String(r.inputs),
+          String(r.outputs),
+        ]),
+        "t-dev",
+      )}
+      <h2>${esc(t("Cable schedule"))}</h2>
+      ${table(
+        ["Cable", "Signal", "From", "Port", "Conn.", "To", "Port", "Conn."],
         cableRows.map((r) => [
-          r.label, findSignal(signals, r.signal).label,
-          r.fromTag, r.fromPort, r.fromConn, r.toTag, r.toPort, r.toConn,
-        ]), "t-cab")}
+          r.label,
+          findSignal(signals, r.signal).label,
+          r.fromTag,
+          r.fromPort,
+          r.fromConn,
+          r.toTag,
+          r.toPort,
+          r.toConn,
+        ]),
+        "t-cab",
+      )}
     </div>
   </section>
 </main>
@@ -608,7 +696,7 @@ export function buildViewerHtml({
   themer.onclick = function(){
     var dark = document.documentElement.dataset.theme === "dark";
     document.documentElement.dataset.theme = dark ? "light" : "dark";
-    themer.textContent = dark ? "Dark" : "Light";
+    themer.textContent = dark ? ${JSON.stringify(t("Dark"))} : ${JSON.stringify(t("Light"))};
   };
 
   /* ---- pan & zoom ---- */
@@ -670,20 +758,20 @@ export function buildViewerHtml({
 
     var links = CABLES.filter(function(c){ return c.fromTag === d.tag || c.toTag === d.tag; });
     panel.innerHTML =
-      '<button class="close" title="Close">&times;</button>' +
+      '<button class="close" title="${esc(t("Close"))}">&times;</button>' +
       '<h2>' + escapeHtml(d.name) + '</h2>' +
       '<div class="tagline">' + escapeHtml(d.tag) + '</div>' +
-      '<table><tr><th>Manufacturer</th></tr><tr><td>' + (escapeHtml(d.manufacturer) || "—") + '</td></tr>' +
-      '<tr><th>Model</th></tr><tr><td>' + (escapeHtml(d.model) || "—") + '</td></tr></table>' +
-      '<table><tr><th>Ports</th></tr>' +
+      '<table><tr><th>${esc(t("Manufacturer"))}</th></tr><tr><td>' + (escapeHtml(d.manufacturer) || "—") + '</td></tr>' +
+      '<tr><th>${esc(t("Model"))}</th></tr><tr><td>' + (escapeHtml(d.model) || "—") + '</td></tr></table>' +
+      '<table><tr><th>${esc(t("Ports"))}</th></tr>' +
       d.ports.map(function(p){
         var c = (SIGNALS[p.signal] || {}).color || "#888";
         return '<tr><td><span class="sw" style="background:' + c + '"></span>' +
-          escapeHtml(p.label) + ' <span style="opacity:.55">' + (p.dir === "in" ? "IN" : "OUT") +
+          escapeHtml(p.label) + ' <span style="opacity:.55">' + (p.dir === "in" ? ${JSON.stringify(t("In"))} : ${JSON.stringify(t("Out"))}) +
           (p.connector ? " · " + escapeHtml(p.connector) : "") + '</span></td></tr>';
       }).join("") + '</table>' +
       (links.length
-        ? '<table><tr><th>Cables (' + links.length + ')</th></tr>' +
+        ? '<table><tr><th>${esc(t("Cables"))} (' + links.length + ')</th></tr>' +
           links.map(function(c){
             var other = c.fromTag === d.tag ? (c.toTag + "/" + c.toPort) : (c.fromTag + "/" + c.fromPort);
             var dir = c.fromTag === d.tag ? "→" : "←";
@@ -701,13 +789,13 @@ export function buildViewerHtml({
     if (g) g.classList.add("hi");
     var col = (SIGNALS[c.signal] || {}).color || "#888";
     panel.innerHTML =
-      '<button class="close" title="Close">&times;</button>' +
-      '<h2>' + (escapeHtml(c.label) || "Cable") + '</h2>' +
+      '<button class="close" title="${esc(t("Close"))}">&times;</button>' +
+      '<h2>' + (escapeHtml(c.label) || ${JSON.stringify(t("Cable"))}) + '</h2>' +
       '<div class="tagline"><span class="sw" style="background:' + col + '"></span>' +
       escapeHtml((SIGNALS[c.signal] || {}).label || c.signal) + '</div>' +
-      '<table><tr><th>From</th></tr><tr><td>' + escapeHtml(c.fromTag) + " · " + escapeHtml(c.fromPort) +
+      '<table><tr><th>${esc(t("From"))}</th></tr><tr><td>' + escapeHtml(c.fromTag) + " · " + escapeHtml(c.fromPort) +
       (c.fromConn ? ' <span style="opacity:.55">' + escapeHtml(c.fromConn) + "</span>" : "") + '</td></tr>' +
-      '<tr><th>To</th></tr><tr><td>' + escapeHtml(c.toTag) + " · " + escapeHtml(c.toPort) +
+      '<tr><th>${esc(t("To"))}</th></tr><tr><td>' + escapeHtml(c.toTag) + " · " + escapeHtml(c.toPort) +
       (c.toConn ? ' <span style="opacity:.55">' + escapeHtml(c.toConn) + "</span>" : "") + '</td></tr></table>';
     panel.classList.add("on");
     panel.querySelector(".close").onclick = closePanel;

@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, test } from "vitest";
 
 import { presetCamera, VIEW_PRESETS, type ViewPreset } from "./room-view";
 import { DEFAULT_ROOM } from "@/lib/room";

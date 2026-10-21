@@ -1,106 +1,20 @@
+# Project instructions
 
-Default to using Bun instead of Node.js.
+Use **Node.js and npm**. The user explicitly replaced the previous Bun runtime and toolchain.
 
-- Use `bun <file>` instead of `node <file>` or `ts-node <file>`
-- Use `bun test` instead of `jest` or `vitest`
-- Use `bun build <file.html|file.ts|file.css>` instead of `webpack` or `esbuild`
-- Use `bun install` instead of `npm install` or `yarn install` or `pnpm install`
-- Use `bun run <script>` instead of `npm run <script>` or `yarn run <script>` or `pnpm run <script>`
-- Use `bunx <package> <command>` instead of `npx <package> <command>`
-- Bun automatically loads .env, so don't use dotenv.
+- `npm install` / `npm ci` for dependencies; commit `package-lock.json`.
+- `npm run dev` for TanStack Start; `npm run build` for its Nitro Node output.
+- `npm test` runs Vitest on Node; `npm run typecheck` checks TypeScript.
+- `npm run desktop:dev` and `npm run desktop:build` use Electron.
+- Use TanStack Start file routes, server routes and server functions for app web/server work. Its Vite toolchain is approved by the framework migration request.
+- Preserve the existing React Flow and Three.js editor, project format, exports and IndexedDB data.
+- AI integration uses the Node.js MCP stdio server (`mcp/server.mjs`) and the local TanStack Start `/api/canvas` route. The user explicitly reverted the local CLI launcher. Do not reintroduce the in-app agent launcher.
+- Keep renderer Node integration disabled and context isolation enabled. Canvas commands must be validated, correlated by ID and limited to a local server; preserve browser Origin and loopback Host checks.
+- Read current canvas state before agent edits; never clear user drawings without an explicit request.
+- `src-tauri/` is historical rollback material, not the active desktop build.
 
-## APIs
+See README.md and doc/mcp-integration.md for the current architecture and workflow.
 
-- `Bun.serve()` supports WebSockets, HTTPS, and routes. Don't use `express`.
-- `bun:sqlite` for SQLite. Don't use `better-sqlite3`.
-- `Bun.redis` for Redis. Don't use `ioredis`.
-- `Bun.sql` for Postgres. Don't use `pg` or `postgres.js`.
-- `WebSocket` is built-in. Don't use `ws`.
-- Prefer `Bun.file` over `node:fs`'s readFile/writeFile
-- Bun.$`ls` instead of execa.
-
-## Testing
-
-Use `bun test` to run tests.
-
-```ts#index.test.ts
-import { test, expect } from "bun:test";
-
-test("hello world", () => {
-  expect(1).toBe(1);
-});
-```
-
-## Frontend
-
-Use HTML imports with `Bun.serve()`. Don't use `vite`. HTML imports fully support React, CSS, Tailwind.
-
-Server:
-
-```ts#index.ts
-import index from "./index.html"
-
-Bun.serve({
-  routes: {
-    "/": index,
-    "/api/users/:id": {
-      GET: (req) => {
-        return new Response(JSON.stringify({ id: req.params.id }));
-      },
-    },
-  },
-  // optional websocket support
-  websocket: {
-    open: (ws) => {
-      ws.send("Hello, world!");
-    },
-    message: (ws, message) => {
-      ws.send(message);
-    },
-    close: (ws) => {
-      // handle close
-    }
-  },
-  development: {
-    hmr: true,
-    console: true,
-  }
-})
-```
-
-HTML files can import .tsx, .jsx or .js files directly and Bun's bundler will transpile & bundle automatically. `<link>` tags can point to stylesheets and Bun's CSS bundler will bundle.
-
-```html#index.html
-<html>
-  <body>
-    <h1>Hello, world!</h1>
-    <script type="module" src="./frontend.tsx"></script>
-  </body>
-</html>
-```
-
-With the following `frontend.tsx`:
-
-```tsx#frontend.tsx
-import React from "react";
-import { createRoot } from "react-dom/client";
-
-// import .css files directly and it works
-import './index.css';
-
-const root = createRoot(document.body);
-
-export default function Frontend() {
-  return <h1>Hello, world!</h1>;
-}
-
-root.render(<Frontend />);
-```
-
-Then, run index.ts
-
-```sh
-bun --hot ./index.ts
-```
-
-For more information, read the Bun API docs in `node_modules/bun-types/docs/**.mdx`.
+- Product branding is iconic. Keep English, Traditional Chinese (`zh-Hant`) and Japanese catalogs in `src/locales/` synchronized; translate UI chrome, never user-authored drawing data.
+- Keep the existing IndexedDB name and project JSON kind for compatibility. Desktop profile migration must preserve the original profile.
+- Release builds use `.github/workflows/release.yml`; upload built installers and agent/web archives as GitHub Release assets, not Git source files.

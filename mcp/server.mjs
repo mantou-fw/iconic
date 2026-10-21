@@ -1,112 +1,25 @@
-#!/usr/bin/env bun
-/**
- * MCP server for the AV schematic canvas.
- *
- * Speaks MCP over stdio to the agent, and relays commands to the browser over
- * the existing WebSocket bridge (`bun --hot src/index.ts` must be running).
- * The socket stays a transport detail; the agent only ever sees typed tools.
- *
- * Register with Claude Code:
- *   claude mcp add av-schematic -- bun /path/to/mcp/server.ts
- */
+#!/usr/bin/env node
+// MCP stdio tools for the local TanStack Start canvas. Run with Node.js.
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 
-const WS_URL = process.env.AV_WS ?? "ws://localhost:4321/ws?role=ai";
-const TIMEOUT_MS = 5000;
+import { call } from "./transport.mjs";
+const push = call;
 
-/* ------------------------------------------------------------- transport */
-
-let socket: WebSocket | null = null;
-let connecting: Promise<WebSocket> | null = null;
-
-/** Everything waiting on a reply from the canvas, oldest first. */
-const waiters: ((msg: any) => void)[] = [];
-
-function connect(): Promise<WebSocket> {
-  if (socket?.readyState === WebSocket.OPEN) return Promise.resolve(socket);
-  if (connecting) return connecting;
-
-  connecting = new Promise((resolve, reject) => {
-    const ws = new WebSocket(WS_URL);
-    const fail = () =>
-      reject(
-        new Error(
-          `Cannot reach the canvas at ${WS_URL}. Start it with \`bun --hot src/index.ts\` and open http://localhost:4321 in a browser.`,
-        ),
-      );
-
-    ws.addEventListener("open", () => {
-      socket = ws;
-      connecting = null;
-      resolve(ws);
-    });
-    ws.addEventListener("error", () => {
-      connecting = null;
-      fail();
-    });
-    ws.addEventListener("close", () => {
-      socket = null;
-      connecting = null;
-    });
-    ws.addEventListener("message", (event) => {
-      let msg: any;
-      try {
-        msg = JSON.parse(String(event.data));
-      } catch {
-        return;
-      }
-      // Relay bookkeeping is not a reply to anything.
-      if (msg.type === "hello" || msg.type === "peers") return;
-      waiters.shift()?.(msg);
-    });
-  });
-  return connecting;
-}
-
-/** Sends one command and waits for the canvas to answer it. */
-async function call(command: Record<string, unknown>): Promise<any> {
-  const ws = await connect();
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      const i = waiters.indexOf(settle);
-      if (i >= 0) waiters.splice(i, 1);
-      reject(
-        new Error(
-          "The canvas did not respond. Is http://localhost:4321 open in a browser?",
-        ),
-      );
-    }, TIMEOUT_MS);
-
-    const settle = (msg: any) => {
-      clearTimeout(timer);
-      resolve(msg);
-    };
-    waiters.push(settle);
-    ws.send(JSON.stringify(command));
-  });
-}
-
-/** Fire-and-forget: the canvas only replies once, to the final command. */
-async function push(command: Record<string, unknown>) {
-  const ws = await connect();
-  ws.send(JSON.stringify(command));
-}
-
-const text = (value: unknown) => ({
+const text = (value         ) => ({
   content: [
-    { type: "text" as const, text: typeof value === "string" ? value : JSON.stringify(value, null, 2) },
+    { type: "text"         , text: typeof value === "string" ? value : JSON.stringify(value, null, 2) },
   ],
 });
 
-const failed = (message: string) => ({
-  content: [{ type: "text" as const, text: message }],
+const failed = (message        ) => ({
+  content: [{ type: "text"         , text: message }],
   isError: true,
 });
 
 /** Normalises whatever the canvas sent back into an MCP result. */
-const report = (reply: any, success: string) =>
+const report = (reply     , success        ) =>
   reply?.ok === false ? failed(reply.message ?? "Command failed") : text(success);
 
 /* ------------------------------------------------------------------ tools */
@@ -384,7 +297,6 @@ server.registerTool(
   async ({ items, clearFirst, ...room }) => {
     await push({ type: "set_room", ...room, clearItems: clearFirst });
     for (const item of items) await push({ type: "add_room_item", ...item });
-    await new Promise((r) => setTimeout(r, 400));
     return text(await call({ type: "get_room" }));
   },
 );
@@ -439,11 +351,7 @@ server.registerTool(
     if (clearFirst) await push({ type: "clear" });
     for (const zone of zones) await push({ type: "add_zone", ...zone });
     for (const device of devices) await push({ type: "add_device", ...device });
-    // Let the canvas commit its nodes before cables look ports up by name.
-    await new Promise((r) => setTimeout(r, 400));
     for (const cable of cables) await push({ type: "connect", ...cable });
-
-    await new Promise((r) => setTimeout(r, 400));
     const state = await call({ type: "get_state" });
     return text({
       built: {

@@ -1,3 +1,4 @@
+import { useT } from "@/lib/i18n";
 import { Check } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -38,10 +39,16 @@ const MODE_LABEL: Record<PanelMode, string> = {
   memo: "Memo",
 };
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+function Row({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="flex items-center gap-2.5">
-      <span className="w-9 shrink-0 text-[11px] font-medium text-muted-foreground">
+      <span className="min-w-9 shrink-0 text-[11px] font-medium text-muted-foreground">
         {label}
       </span>
       {children}
@@ -69,21 +76,22 @@ export function PropertiesPanel({
   fontSize?: number;
   onFontSizeChange?: (size: number) => void;
 }) {
+  const t = useT();
   const palette = mode === "memo" ? NOTE_PALETTE : INK_PALETTE;
 
   return (
     <div className="glass-panel absolute right-4 top-4 z-10 w-[204px] rounded-[14px] p-3">
       <div className="mb-2.5 flex items-baseline justify-between">
         <span className="text-[13px] font-semibold tracking-[-0.01em]">
-          {MODE_LABEL[mode]}
+          {t(MODE_LABEL[mode])}
         </span>
         <span className="text-[10px] text-muted-foreground">
-          {scope === "selection" ? "Selected" : "Defaults"}
+          {scope === "selection" ? t("Selected") : t("Defaults")}
         </span>
       </div>
 
       <div className="space-y-2.5">
-        <Row label="Color">
+        <Row label={t("Color")}>
           <div className="grid flex-1 grid-cols-5 gap-1.5">
             {palette.map((c) => (
               <button
@@ -110,7 +118,7 @@ export function PropertiesPanel({
           </div>
         </Row>
 
-        <Row label="Custom">
+        <Row label={t("Custom")}>
           <input
             type="color"
             value={color}
@@ -120,7 +128,7 @@ export function PropertiesPanel({
         </Row>
 
         {strokeWidth !== undefined && onStrokeWidthChange && (
-          <Row label="Width">
+          <Row label={t("Width")}>
             <input
               type="range"
               min={1}
@@ -137,7 +145,7 @@ export function PropertiesPanel({
         )}
 
         {fontSize !== undefined && onFontSizeChange && (
-          <Row label="Size">
+          <Row label={t("Size")}>
             <input
               type="range"
               min={8}

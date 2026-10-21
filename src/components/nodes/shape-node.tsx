@@ -1,3 +1,4 @@
+import { useT } from "@/lib/i18n";
 import { memo, useEffect, useRef } from "react";
 import {
   NodeResizer,
@@ -33,7 +34,12 @@ const SHAPES: { kind: ShapeKind; icon: typeof Square; label: string }[] = [
   { kind: "triangle", icon: Triangle, label: "Triangle" },
 ];
 
-function ShapeNodeImpl({ id, data, selected }: NodeProps & { data: ShapeData }) {
+function ShapeNodeImpl({
+  id,
+  data,
+  selected,
+}: NodeProps & { data: ShapeData }) {
+  const t = useT();
   const { updateNodeData } = useReactFlow();
   const ref = useRef<HTMLTextAreaElement>(null);
 
@@ -55,7 +61,8 @@ function ShapeNodeImpl({ id, data, selected }: NodeProps & { data: ShapeData }) 
         {SHAPES.map(({ kind, icon: ShapeIcon, label }) => (
           <button
             key={kind}
-            title={label}
+            title={t(label)}
+            aria-label={t(label)}
             onClick={() => updateNodeData(id, { shape: kind })}
             className={cn(
               "flex h-6 w-6 items-center justify-center rounded-md hover:bg-black/[0.06] dark:hover:bg-white/10",
@@ -79,31 +86,50 @@ function ShapeNodeImpl({ id, data, selected }: NodeProps & { data: ShapeData }) 
       >
         {data.shape === "rectangle" && (
           <rect
-            x="1.5" y="1.5" width="97" height="97" rx="6"
-            fill="var(--glass)" fillOpacity="0.3"
-            stroke={data.color} strokeWidth="2" vectorEffect="non-scaling-stroke"
+            x="1.5"
+            y="1.5"
+            width="97"
+            height="97"
+            rx="6"
+            fill="var(--glass)"
+            fillOpacity="0.3"
+            stroke={data.color}
+            strokeWidth="2"
+            vectorEffect="non-scaling-stroke"
           />
         )}
         {data.shape === "ellipse" && (
           <ellipse
-            cx="50" cy="50" rx="48.5" ry="48.5"
-            fill="var(--glass)" fillOpacity="0.3"
-            stroke={data.color} strokeWidth="2" vectorEffect="non-scaling-stroke"
+            cx="50"
+            cy="50"
+            rx="48.5"
+            ry="48.5"
+            fill="var(--glass)"
+            fillOpacity="0.3"
+            stroke={data.color}
+            strokeWidth="2"
+            vectorEffect="non-scaling-stroke"
           />
         )}
         {data.shape === "diamond" && (
           <polygon
             points="50,2 98,50 50,98 2,50"
-            fill="var(--glass)" fillOpacity="0.3"
-            stroke={data.color} strokeWidth="2" vectorEffect="non-scaling-stroke"
+            fill="var(--glass)"
+            fillOpacity="0.3"
+            stroke={data.color}
+            strokeWidth="2"
+            vectorEffect="non-scaling-stroke"
             strokeLinejoin="round"
           />
         )}
         {data.shape === "triangle" && (
           <polygon
             points="50,4 97,96 3,96"
-            fill="var(--glass)" fillOpacity="0.3"
-            stroke={data.color} strokeWidth="2" vectorEffect="non-scaling-stroke"
+            fill="var(--glass)"
+            fillOpacity="0.3"
+            stroke={data.color}
+            strokeWidth="2"
+            vectorEffect="non-scaling-stroke"
             strokeLinejoin="round"
           />
         )}
@@ -116,7 +142,7 @@ function ShapeNodeImpl({ id, data, selected }: NodeProps & { data: ShapeData }) 
         <textarea
           ref={ref}
           value={data.text}
-          placeholder="Text"
+          placeholder={t("Text")}
           rows={1}
           onChange={(e) => {
             updateNodeData(id, { text: e.target.value });

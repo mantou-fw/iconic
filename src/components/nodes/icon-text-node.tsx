@@ -1,3 +1,4 @@
+import { useT } from "@/lib/i18n";
 import { memo, useEffect, useRef, useState } from "react";
 import { Position, useReactFlow, type NodeProps } from "@xyflow/react";
 import { Icon } from "@iconify/react";
@@ -43,6 +44,7 @@ function AutoTextarea({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const t = useT();
   const ref = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -57,7 +59,7 @@ function AutoTextarea({
       ref={ref}
       rows={1}
       value={value}
-      placeholder="Label"
+      placeholder={t("Label")}
       onChange={(e) => onChange(e.target.value)}
       className={cn(
         "nodrag nopan w-full resize-none overflow-hidden rounded-md bg-transparent px-1 text-center text-[11px] font-medium leading-tight outline-none",
@@ -68,7 +70,12 @@ function AutoTextarea({
   );
 }
 
-function IconTextNodeImpl({ id, data, selected }: NodeProps & { data: IconTextData }) {
+function IconTextNodeImpl({
+  id,
+  data,
+  selected,
+}: NodeProps & { data: IconTextData }) {
+  const t = useT();
   const { updateNodeData } = useReactFlow();
   const [pickerOpen, setPickerOpen] = useState(false);
 
@@ -78,7 +85,8 @@ function IconTextNodeImpl({ id, data, selected }: NodeProps & { data: IconTextDa
     <div
       className={cn(
         "relative flex w-[132px] flex-col items-center gap-1 rounded-[10px] p-2 transition-shadow",
-        selected && "ring-2 ring-[var(--primary)]/50 ring-offset-2 ring-offset-transparent",
+        selected &&
+          "ring-2 ring-[var(--primary)]/50 ring-offset-2 ring-offset-transparent",
       )}
     >
       <SideHandles position={Position.Top} id="top" />
@@ -87,11 +95,15 @@ function IconTextNodeImpl({ id, data, selected }: NodeProps & { data: IconTextDa
       <SideHandles position={Position.Left} id="left" />
 
       <button
-        title="Change icon"
+        title={t("Change icon")}
         onClick={() => setPickerOpen((v) => !v)}
         className="nodrag nopan flex h-10 w-10 items-center justify-center rounded-[9px] text-foreground transition-colors hover:bg-black/[0.06] dark:hover:bg-white/10"
       >
-        <Icon icon={data.icon || "mdi:help-circle-outline"} width={28} height={28} />
+        <Icon
+          icon={data.icon || "mdi:help-circle-outline"}
+          width={28}
+          height={28}
+        />
       </button>
 
       <AutoTextarea value={data.label} onChange={(label) => patch({ label })} />
@@ -124,7 +136,7 @@ function IconTextNodeImpl({ id, data, selected }: NodeProps & { data: IconTextDa
           <input
             defaultValue={data.icon}
             placeholder="any-set:icon-name"
-            title="Any Iconify icon id — see icon-sets.iconify.design"
+            title={t("Any Iconify icon id — see icon-sets.iconify.design")}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 patch({ icon: e.currentTarget.value.trim() });

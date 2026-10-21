@@ -1,0 +1,67 @@
+name: Build and release iconic
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            command: desktop:build:mac
+            name: macOS
+          - os: windows-latest
+            command: desktop:build:windows
+            name: Windows
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run ${{ matrix.command }}
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - if: runner.os == 'macOS'
+        run: npm run release:web
+      - uses: actions/upload-artifact@v4
+        with:
+          name: iconic-${{ matrix.name }}
+          path: |
+            release/**/*.dmg
+            release/**/*.exe
+            release/agent-pack/*.zip
+            release/web/*.zip
+          if-no-files-found: error
+  release:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Publish release and checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          find artifacts -type f \( -name '*.dmg' -o -name '*.exe' -o -name '*.zip' \) -exec cp {} artifacts/ \;
+          cd artifacts
+          sha256sum ./*.dmg ./*.exe ./*.zip > SHA256SUMS.txt
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" ./*.dmg ./*.exe ./*.zip SHA256SUMS.txt --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$GITHUB_REF_NAME" ./*.dmg ./*.exe ./*.zip SHA256SUMS.txt --title "iconic $GITHUB_REF_NAME" --notes-file ../doc/release-notes.md --repo "$GITHUB_REPOSITORY" --verify-tag
+          fi

@@ -1,0 +1,7 @@
+{
+  "name": "iconic",
+  "version": "0.2.0",
+  "description": "AV schematics, rack elevations and 3D room layouts",
+  "type": "module",
+  "main": "main.mjs"
+}

@@ -1,9 +1,13 @@
-# dependencies (bun install)
+# dependencies (npm install)
 node_modules
 
 # output
 out
 dist
+.output/
+.tanstack/
+release/
+.desktop/
 *.tgz
 
 # code coverage
@@ -32,3 +36,9 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # Finder (MacOS) folder config
 .DS_Store
+
+# Generated standalone AI setup download
+public/downloads/iconic-agent-pack.zip
+
+# Old generated standalone pack download
+public/downloads/*.zip

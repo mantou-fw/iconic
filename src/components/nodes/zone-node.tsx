@@ -1,3 +1,4 @@
+import { useT } from "@/lib/i18n";
 import { memo } from "react";
 import { NodeResizer, useReactFlow, type NodeProps } from "@xyflow/react";
 
@@ -19,12 +20,20 @@ export const ZONE_COLORS = [
   "#db2777",
 ];
 
-export const makeZoneData = (name = "Zone", color = ZONE_COLORS[0]!): ZoneNodeData => ({
+export const makeZoneData = (
+  name = "Zone",
+  color = ZONE_COLORS[0]!,
+): ZoneNodeData => ({
   name,
   color,
 });
 
-function ZoneNodeImpl({ id, data, selected }: NodeProps & { data: ZoneNodeData }) {
+function ZoneNodeImpl({
+  id,
+  data,
+  selected,
+}: NodeProps & { data: ZoneNodeData }) {
+  const t = useT();
   const { updateNodeData } = useReactFlow();
   const color = data.color ?? ZONE_COLORS[0]!;
 
@@ -35,7 +44,9 @@ function ZoneNodeImpl({ id, data, selected }: NodeProps & { data: ZoneNodeData }
         selected && "border-solid",
       )}
       style={{
-        borderColor: selected ? color : `color-mix(in srgb, ${color} 55%, transparent)`,
+        borderColor: selected
+          ? color
+          : `color-mix(in srgb, ${color} 55%, transparent)`,
         background: `color-mix(in srgb, ${color} 7%, transparent)`,
       }}
     >
@@ -51,10 +62,13 @@ function ZoneNodeImpl({ id, data, selected }: NodeProps & { data: ZoneNodeData }
         className="absolute -top-3 left-3 flex items-center gap-1.5 rounded-full px-2.5 py-0.5 shadow-sm"
         style={{ background: `color-mix(in srgb, ${color} 16%, var(--glass))` }}
       >
-        <span className="h-1.5 w-1.5 rounded-full" style={{ background: color }} />
+        <span
+          className="h-1.5 w-1.5 rounded-full"
+          style={{ background: color }}
+        />
         <input
           value={data.name}
-          placeholder="Zone"
+          placeholder={t("Zone")}
           onChange={(e) => updateNodeData(id, { name: e.target.value })}
           className="nodrag nopan w-[136px] bg-transparent text-[11px] font-semibold tracking-tight outline-none"
           style={{ color }}

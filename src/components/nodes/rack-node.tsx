@@ -1,3 +1,4 @@
+import { useT } from "@/lib/i18n";
 import { memo, useCallback, useRef, useState } from "react";
 import { useReactFlow, type NodeProps } from "@xyflow/react";
 import { Plus, X } from "lucide-react";
@@ -66,7 +67,9 @@ function resolveSlot(
   const max = units - height + 1;
   const start = Math.min(Math.max(wanted, 1), Math.max(max, 1));
   const free = (u: number) =>
-    u >= 1 && u <= max && !others.some((o) => overlaps(u, height, o.u, o.height));
+    u >= 1 &&
+    u <= max &&
+    !others.some((o) => overlaps(u, height, o.u, o.height));
 
   if (free(start)) return start;
   // Spiral outwards from the requested slot.
@@ -77,7 +80,12 @@ function resolveSlot(
   return start;
 }
 
-function RackNodeImpl({ id, data, selected }: NodeProps & { data: RackNodeData }) {
+function RackNodeImpl({
+  id,
+  data,
+  selected,
+}: NodeProps & { data: RackNodeData }) {
+  const t = useT();
   const { updateNodeData } = useReactFlow();
   const bodyRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState<string | null>(null);
@@ -116,9 +124,7 @@ function RackNodeImpl({ id, data, selected }: NodeProps & { data: RackNodeData }
       const next = resolveSlot(startU + deltaU, item.height, units, others);
       if (next === live) return;
       live = next;
-      setItems(
-        items.map((x) => (x.id === item.id ? { ...x, u: next } : x)),
-      );
+      setItems(items.map((x) => (x.id === item.id ? { ...x, u: next } : x)));
     };
     const up = () => {
       setDragging(null);
@@ -153,7 +159,9 @@ function RackNodeImpl({ id, data, selected }: NodeProps & { data: RackNodeData }
       <div className="flex items-center gap-1.5 border-b border-[var(--hairline)] bg-black/[0.03] px-2 py-1.5 dark:bg-white/[0.04]">
         <input
           value={data.tag}
-          onChange={(e) => updateNodeData(id, { tag: e.target.value.toUpperCase() })}
+          onChange={(e) =>
+            updateNodeData(id, { tag: e.target.value.toUpperCase() })
+          }
           className="nodrag nopan w-[64px] shrink-0 rounded-md border border-[var(--hairline)] bg-background/70 py-[1px] text-center font-mono text-[10px] font-semibold uppercase outline-none"
         />
         <input
@@ -166,9 +174,11 @@ function RackNodeImpl({ id, data, selected }: NodeProps & { data: RackNodeData }
           min={1}
           max={60}
           value={units}
-          title="Rack units"
+          title={t("Rack units")}
           onChange={(e) =>
-            updateNodeData(id, { units: Math.max(1, Number(e.target.value) || 1) })
+            updateNodeData(id, {
+              units: Math.max(1, Number(e.target.value) || 1),
+            })
           }
           className="nodrag nopan w-[38px] shrink-0 rounded-md border border-[var(--hairline)] bg-background/70 text-center font-mono text-[10px] outline-none"
         />
@@ -216,7 +226,9 @@ function RackNodeImpl({ id, data, selected }: NodeProps & { data: RackNodeData }
               className={cn(
                 "nodrag nopan group absolute left-1 right-1 flex items-center gap-1",
                 "rounded-[3px] border px-1.5 text-[10px] shadow-sm transition-shadow",
-                dragging === item.id ? "z-10 cursor-grabbing shadow-lg" : "cursor-grab",
+                dragging === item.id
+                  ? "z-10 cursor-grabbing shadow-lg"
+                  : "cursor-grab",
               )}
               style={{
                 top: topOf(item) + 1,
@@ -225,7 +237,7 @@ function RackNodeImpl({ id, data, selected }: NodeProps & { data: RackNodeData }
                 borderColor: item.color ?? "#64748b",
               }}
               onPointerDown={(e) => beginDrag(e, item)}
-              title={`${item.tag ? item.tag + " · " : ""}${item.label} — ${item.height}U at U${item.u}`}
+              title={`${item.tag ? item.tag + " · " : ""}${item.label} — ${item.height}U ${t("at")} U${item.u}`}
             >
               <span
                 className="h-2.5 w-1 shrink-0 rounded-[1px]"
@@ -247,10 +259,13 @@ function RackNodeImpl({ id, data, selected }: NodeProps & { data: RackNodeData }
                 min={1}
                 max={units}
                 value={item.height}
-                title="Height in U"
+                title={t("Height in U")}
                 onPointerDown={(e) => e.stopPropagation()}
                 onChange={(e) => {
-                  const h = Math.min(Math.max(Number(e.target.value) || 1, 1), units);
+                  const h = Math.min(
+                    Math.max(Number(e.target.value) || 1, 1),
+                    units,
+                  );
                   patch(item.id, {
                     height: h,
                     u: resolveSlot(
@@ -267,7 +282,7 @@ function RackNodeImpl({ id, data, selected }: NodeProps & { data: RackNodeData }
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={() => setItems(items.filter((x) => x.id !== item.id))}
                 className="nodrag nopan shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-                title="Remove"
+                title={t("Remove")}
               >
                 <X size={9} />
               </button>
@@ -280,7 +295,7 @@ function RackNodeImpl({ id, data, selected }: NodeProps & { data: RackNodeData }
         onClick={addItem}
         className="nodrag nopan flex w-full items-center gap-1 border-t border-[var(--hairline)] px-2 py-1 text-[10px] text-muted-foreground/80 transition-colors hover:bg-black/[0.04] hover:text-foreground dark:hover:bg-white/[0.06]"
       >
-        <Plus size={10} strokeWidth={2.2} /> Equipment
+        <Plus size={10} strokeWidth={2.2} /> {t("Equipment")}{" "}
       </button>
     </div>
   );

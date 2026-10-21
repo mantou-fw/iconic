@@ -1,3 +1,4 @@
+import { useT } from "@/lib/i18n";
 import { memo, useEffect, useRef } from "react";
 import { NodeResizer, useReactFlow, type NodeProps } from "@xyflow/react";
 
@@ -9,7 +10,12 @@ export type TextNodeData = {
   autoFocus?: boolean;
 };
 
-function TextNodeImpl({ id, data, selected }: NodeProps & { data: TextNodeData }) {
+function TextNodeImpl({
+  id,
+  data,
+  selected,
+}: NodeProps & { data: TextNodeData }) {
+  const t = useT();
   const { updateNodeData } = useReactFlow();
   const ref = useRef<HTMLTextAreaElement>(null);
 
@@ -27,7 +33,7 @@ function TextNodeImpl({ id, data, selected }: NodeProps & { data: TextNodeData }
         className="nodrag nopan h-full w-full resize-none bg-transparent leading-snug outline-none"
         style={{ color: data.color, fontSize: data.fontSize }}
         value={data.text}
-        placeholder="Text…"
+        placeholder={t("Text…")}
         onChange={(e) => updateNodeData(id, { text: e.target.value })}
       />
     </div>

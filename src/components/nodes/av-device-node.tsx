@@ -1,10 +1,6 @@
+import { useT } from "@/lib/i18n";
 import { memo, useCallback } from "react";
-import {
-  Handle,
-  Position,
-  useReactFlow,
-  type NodeProps,
-} from "@xyflow/react";
+import { Handle, Position, useReactFlow, type NodeProps } from "@xyflow/react";
 import { Plus, X } from "lucide-react";
 
 import {
@@ -38,16 +34,33 @@ export type AVDeviceData = {
 const SCHEMA_V = 2;
 
 let portSeq = 0;
-const newPortId = () => `p${Date.now().toString(36)}${(++portSeq).toString(36)}`;
+const newPortId = () =>
+  `p${Date.now().toString(36)}${(++portSeq).toString(36)}`;
 
 /**
  * Datatype names inherited from the generic schema node. They are meaningless
  * on an AV drawing, where the column holds a connector type instead.
  */
 const GENERIC_TYPES = new Set([
-  "string", "text", "number", "int", "integer", "float", "double", "decimal",
-  "boolean", "bool", "date", "datetime", "timestamp", "uuid", "json", "object",
-  "array", "null", "—",
+  "string",
+  "text",
+  "number",
+  "int",
+  "integer",
+  "float",
+  "double",
+  "decimal",
+  "boolean",
+  "bool",
+  "date",
+  "datetime",
+  "timestamp",
+  "uuid",
+  "json",
+  "object",
+  "array",
+  "null",
+  "—",
 ]);
 
 const cleanConnector = (value: unknown) => {
@@ -55,7 +68,10 @@ const cleanConnector = (value: unknown) => {
   return GENERIC_TYPES.has(s.toLowerCase()) ? "" : s;
 };
 
-export const makePort = (dir: "in" | "out", signal: SignalType = "audio"): DevicePort => ({
+export const makePort = (
+  dir: "in" | "out",
+  signal: SignalType = "audio",
+): DevicePort => ({
   id: newPortId(),
   label: dir === "in" ? "Input" : "Output",
   connector: "",
@@ -103,10 +119,7 @@ export function normalizeDeviceData(data: any): AVDeviceData {
 }
 
 /* Bare, borderless inputs so the block reads as a drawing, not a form. */
-function CellInput({
-  className,
-  ...props
-}: React.ComponentProps<"input">) {
+function CellInput({ className, ...props }: React.ComponentProps<"input">) {
   return (
     <input
       {...props}
@@ -131,13 +144,14 @@ function PortRow({
   onChange: (patch: Partial<DevicePort>) => void;
   onRemove: () => void;
 }) {
+  const t = useT();
   const signals = useSignals();
   const color = signalColor(signals, port.signal);
   const isIn = port.dir === "in";
 
   const swatch = (
     <button
-      title={`${findSignal(signals, port.signal).label} — click to change`}
+      title={`${findSignal(signals, port.signal).label} — ${t("Click to change")}`}
       onClick={() => onChange({ signal: nextSignal(signals, port.signal) })}
       className="nodrag nopan h-3.5 w-[3px] shrink-0 rounded-full transition-transform hover:scale-y-125"
       style={{ background: color }}
@@ -147,9 +161,12 @@ function PortRow({
   const label = (
     <CellInput
       value={port.label}
-      placeholder="Signal"
+      placeholder={t("Signal")}
       onChange={(e) => onChange({ label: e.target.value })}
-      className={cn("min-w-0 flex-1 text-[11px] leading-none", !isIn && "text-right")}
+      className={cn(
+        "min-w-0 flex-1 text-[11px] leading-none",
+        !isIn && "text-right",
+      )}
     />
   );
 
@@ -157,8 +174,8 @@ function PortRow({
   const connector = (
     <CellInput
       value={port.connector}
-      placeholder="conn"
-      title="Connector type (optional)"
+      placeholder={t("conn")}
+      title={t("Connector type (optional)")}
       onChange={(e) => onChange({ connector: e.target.value })}
       className={cn(
         "w-11 shrink-0 font-mono text-[9px] uppercase leading-none text-muted-foreground",
@@ -203,7 +220,7 @@ function PortRow({
         </>
       )}
       <button
-        title="Remove port"
+        title={t("Remove port")}
         onClick={onRemove}
         className={cn(
           "nodrag nopan absolute top-0.5 opacity-0 transition-opacity group-hover:opacity-100",
@@ -217,7 +234,12 @@ function PortRow({
   );
 }
 
-function AVDeviceNodeImpl({ id, data, selected }: NodeProps & { data: AVDeviceData }) {
+function AVDeviceNodeImpl({
+  id,
+  data,
+  selected,
+}: NodeProps & { data: AVDeviceData }) {
+  const t = useT();
   const { updateNodeData } = useReactFlow();
 
   const patch = useCallback(
@@ -239,7 +261,8 @@ function AVDeviceNodeImpl({ id, data, selected }: NodeProps & { data: AVDeviceDa
   const removePort = (portId: string) =>
     setPorts(data.ports.filter((x) => x.id !== portId));
 
-  const addPort = (dir: "in" | "out") => setPorts([...data.ports, makePort(dir)]);
+  const addPort = (dir: "in" | "out") =>
+    setPorts([...data.ports, makePort(dir)]);
 
   return (
     <div
@@ -256,14 +279,14 @@ function AVDeviceNodeImpl({ id, data, selected }: NodeProps & { data: AVDeviceDa
         <div className="flex items-center gap-1.5">
           <CellInput
             value={data.tag}
-            placeholder="TAG"
-            title="Reference designator"
+            placeholder={t("TAG")}
+            title={t("Reference designator")}
             onChange={(e) => patch({ tag: e.target.value.toUpperCase() })}
             className="w-[64px] shrink-0 rounded-md border border-[var(--hairline)] bg-background/70 py-[1px] text-center font-mono text-[10px] font-semibold uppercase leading-tight tracking-tight"
           />
           <CellInput
             value={data.name}
-            placeholder="Description"
+            placeholder={t("Description")}
             onChange={(e) => patch({ name: e.target.value })}
             className="min-w-0 flex-1 text-[12px] font-semibold leading-tight"
           />
@@ -271,13 +294,13 @@ function AVDeviceNodeImpl({ id, data, selected }: NodeProps & { data: AVDeviceDa
         <div className="mt-0.5 flex items-center gap-1">
           <CellInput
             value={data.manufacturer}
-            placeholder="Manufacturer"
+            placeholder={t("Manufacturer")}
             onChange={(e) => patch({ manufacturer: e.target.value })}
             className="min-w-0 flex-1 text-[9px] uppercase tracking-wide text-muted-foreground"
           />
           <CellInput
             value={data.model}
-            placeholder="Model"
+            placeholder={t("Model")}
             onChange={(e) => patch({ model: e.target.value })}
             className="w-[96px] shrink-0 text-right font-mono text-[9px] text-muted-foreground"
           />
@@ -288,7 +311,8 @@ function AVDeviceNodeImpl({ id, data, selected }: NodeProps & { data: AVDeviceDa
       <div className="grid grid-cols-2 py-0.5">
         <div className="border-r border-[var(--hairline)]">
           <div className="px-2 pt-1 pb-0.5 text-[9px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/70">
-            In
+            {" "}
+            {t("In")}{" "}
           </div>
           {inputs.map((port) => (
             <PortRow
@@ -303,12 +327,13 @@ function AVDeviceNodeImpl({ id, data, selected }: NodeProps & { data: AVDeviceDa
             onClick={() => addPort("in")}
             className="nodrag nopan flex w-full items-center gap-1 px-2 py-1 text-[10px] text-muted-foreground/80 transition-colors hover:bg-black/[0.04] hover:text-foreground dark:hover:bg-white/[0.06]"
           >
-            <Plus size={10} strokeWidth={2.2} /> Input
+            <Plus size={10} strokeWidth={2.2} /> {t("Input")}{" "}
           </button>
         </div>
         <div>
           <div className="px-2 pt-1 pb-0.5 text-right text-[9px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/70">
-            Out
+            {" "}
+            {t("Out")}{" "}
           </div>
           {outputs.map((port) => (
             <PortRow
@@ -323,7 +348,7 @@ function AVDeviceNodeImpl({ id, data, selected }: NodeProps & { data: AVDeviceDa
             onClick={() => addPort("out")}
             className="nodrag nopan flex w-full items-center justify-end gap-1 px-2 py-1 text-[10px] text-muted-foreground/80 transition-colors hover:bg-black/[0.04] hover:text-foreground dark:hover:bg-white/[0.06]"
           >
-            <Plus size={10} strokeWidth={2.2} /> Output
+            <Plus size={10} strokeWidth={2.2} /> {t("Output")}{" "}
           </button>
         </div>
       </div>

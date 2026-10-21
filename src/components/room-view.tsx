@@ -1,3 +1,4 @@
+import { useT } from "@/lib/i18n";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import {
@@ -7,7 +8,15 @@ import {
   RoundedBox,
   TransformControls,
 } from "@react-three/drei";
-import { Boxes, Grid2x2, Move, Move3d, RotateCw, Rotate3d, X } from "lucide-react";
+import {
+  Boxes,
+  Grid2x2,
+  Move,
+  Move3d,
+  RotateCw,
+  Rotate3d,
+  X,
+} from "lucide-react";
 import * as THREE from "three";
 
 import {
@@ -105,9 +114,9 @@ function ItemMesh({
               <mesh
                 key={i}
                 position={[
-                  (sx! * (w / 2 - legInset)),
+                  sx! * (w / 2 - legInset),
                   -top / 2,
-                  (sz! * (d / 2 - legInset)),
+                  sz! * (d / 2 - legInset),
                 ]}
               >
                 <boxGeometry args={[0.06, legH, 0.06]} />
@@ -120,7 +129,11 @@ function ItemMesh({
       case "sofa":
         return (
           <group>
-            <RoundedBox args={[w, h * 0.45, d]} radius={0.05} position={[0, -h * 0.27, 0]}>
+            <RoundedBox
+              args={[w, h * 0.45, d]}
+              radius={0.05}
+              position={[0, -h * 0.27, 0]}
+            >
               <meshStandardMaterial color={color} roughness={0.95} />
             </RoundedBox>
             <RoundedBox
@@ -161,7 +174,9 @@ function ItemMesh({
       {/* Selection cage */}
       {highlight && (
         <mesh>
-          <boxGeometry args={[w * 1.06 + 0.03, h * 1.06 + 0.03, d * 1.06 + 0.03]} />
+          <boxGeometry
+            args={[w * 1.06 + 0.03, h * 1.06 + 0.03, d * 1.06 + 0.03]}
+          />
           <meshBasicMaterial
             color={selected ? "#0a84ff" : "#ffffff"}
             wireframe
@@ -172,7 +187,12 @@ function ItemMesh({
       )}
 
       {highlight && (
-        <Html center distanceFactor={7} position={[0, h / 2 + 0.22, 0]} zIndexRange={[20, 0]}>
+        <Html
+          center
+          distanceFactor={7}
+          position={[0, h / 2 + 0.22, 0]}
+          zIndexRange={[20, 0]}
+        >
           <div className="pointer-events-none whitespace-nowrap rounded-md border border-[var(--hairline)] bg-[var(--glass)] px-2 py-1 text-[11px] font-medium text-foreground shadow-md backdrop-blur-md">
             {item.tag ? `${item.tag} · ` : ""}
             {item.label}
@@ -191,7 +211,11 @@ function Shell({ room }: { room: RoomSpec }) {
 
   return (
     <group>
-      <mesh position={[w / 2, 0, d / 2]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+      <mesh
+        position={[w / 2, 0, d / 2]}
+        rotation={[-Math.PI / 2, 0, 0]}
+        receiveShadow
+      >
         <planeGeometry args={[w, d]} />
         <meshStandardMaterial color="#d8d8dc" roughness={1} />
       </mesh>
@@ -199,11 +223,23 @@ function Shell({ room }: { room: RoomSpec }) {
       {/* Back and left walls only, so the room stays open to the camera. */}
       <mesh position={[w / 2, h / 2, 0]}>
         <planeGeometry args={[w, h]} />
-        <meshStandardMaterial color={wall} roughness={1} side={THREE.DoubleSide} transparent opacity={0.55} />
+        <meshStandardMaterial
+          color={wall}
+          roughness={1}
+          side={THREE.DoubleSide}
+          transparent
+          opacity={0.55}
+        />
       </mesh>
       <mesh position={[0, h / 2, d / 2]} rotation={[0, Math.PI / 2, 0]}>
         <planeGeometry args={[d, h]} />
-        <meshStandardMaterial color={wall} roughness={1} side={THREE.DoubleSide} transparent opacity={0.55} />
+        <meshStandardMaterial
+          color={wall}
+          roughness={1}
+          side={THREE.DoubleSide}
+          transparent
+          opacity={0.55}
+        />
       </mesh>
 
       <Grid
@@ -243,18 +279,36 @@ export function presetCamera(preset: ViewPreset, room: RoomSpec) {
   const span = Math.max(w, d);
   switch (preset) {
     case "front":
-      return { pos: [w / 2, h * 0.55, d + span * 0.85], target: [w / 2, h * 0.45, 0] };
+      return {
+        pos: [w / 2, h * 0.55, d + span * 0.85],
+        target: [w / 2, h * 0.45, 0],
+      };
     case "rear":
-      return { pos: [w / 2, h * 0.55, -span * 0.85], target: [w / 2, h * 0.45, d] };
+      return {
+        pos: [w / 2, h * 0.55, -span * 0.85],
+        target: [w / 2, h * 0.45, d],
+      };
     case "left":
-      return { pos: [-span * 0.85, h * 0.55, d / 2], target: [w, h * 0.45, d / 2] };
+      return {
+        pos: [-span * 0.85, h * 0.55, d / 2],
+        target: [w, h * 0.45, d / 2],
+      };
     case "right":
-      return { pos: [w + span * 0.85, h * 0.55, d / 2], target: [0, h * 0.45, d / 2] };
+      return {
+        pos: [w + span * 0.85, h * 0.55, d / 2],
+        target: [0, h * 0.45, d / 2],
+      };
     case "top":
       // A hair off dead-centre, or the up-vector degenerates and the orbit flips.
-      return { pos: [w / 2, span * 1.7, d / 2 + 0.001], target: [w / 2, 0, d / 2] };
+      return {
+        pos: [w / 2, span * 1.7, d / 2 + 0.001],
+        target: [w / 2, 0, d / 2],
+      };
     default:
-      return { pos: [w * 1.1, h * 1.9, d * 1.6], target: [w / 2, h / 3, d / 2] };
+      return {
+        pos: [w * 1.1, h * 1.9, d * 1.6],
+        target: [w / 2, h / 3, d / 2],
+      };
   }
 }
 
@@ -273,10 +327,15 @@ function CameraRig({
   /** Bumped on every request, so re-picking the same view re-flies to it. */
   nonce: number;
   room: RoomSpec;
-  controls: React.RefObject<{ target: THREE.Vector3; update: () => void } | null>;
+  controls: React.RefObject<{
+    target: THREE.Vector3;
+    update: () => void;
+  } | null>;
 }) {
   const { camera } = useThree();
-  const goal = useRef<{ pos: THREE.Vector3; target: THREE.Vector3 } | null>(null);
+  const goal = useRef<{ pos: THREE.Vector3; target: THREE.Vector3 } | null>(
+    null,
+  );
 
   useEffect(() => {
     const { pos, target } = presetCamera(preset, room);
@@ -333,22 +392,23 @@ function CeilingPlan({
   items: RoomItem[];
   selected: string | null;
   onSelect: (id: string) => void;
-  onMoveItem?: (id: string, change: { position?: RoomItem["position"] }) => void;
+  onMoveItem?: (
+    id: string,
+    change: { position?: RoomItem["position"] },
+  ) => void;
 }) {
+  const t = useT();
   const S = 110; // px per metre
   const pad = 56;
   const svgRef = useRef<SVGSVGElement>(null);
 
   /** Screen point to room metres, via the SVG's own transform. */
-  const toRoom = useCallback(
-    (clientX: number, clientY: number) => {
-      const ctm = svgRef.current?.getScreenCTM();
-      if (!ctm) return null;
-      const p = new DOMPoint(clientX, clientY).matrixTransform(ctm.inverse());
-      return { x: (p.x - pad) / S, z: (p.y - pad) / S };
-    },
-    [],
-  );
+  const toRoom = useCallback((clientX: number, clientY: number) => {
+    const ctm = svgRef.current?.getScreenCTM();
+    if (!ctm) return null;
+    const p = new DOMPoint(clientX, clientY).matrixTransform(ctm.inverse());
+    return { x: (p.x - pad) / S, z: (p.y - pad) / S };
+  }, []);
 
   /**
    * Drags an item across the plan. Screen X/Y map to room X/Z; height (AFF) is
@@ -396,18 +456,34 @@ function CeilingPlan({
   const tiles: React.ReactNode[] = [];
   for (let x = TILE; x < room.width - 0.001; x += TILE) {
     tiles.push(
-      <line key={`v${x}`} x1={pad + x * S} y1={pad} x2={pad + x * S} y2={pad + d} className="tile" />,
+      <line
+        key={`v${x}`}
+        x1={pad + x * S}
+        y1={pad}
+        x2={pad + x * S}
+        y2={pad + d}
+        className="tile"
+      />,
     );
   }
   for (let z = TILE; z < room.depth - 0.001; z += TILE) {
     tiles.push(
-      <line key={`h${z}`} x1={pad} y1={pad + z * S} x2={pad + w} y2={pad + z * S} className="tile" />,
+      <line
+        key={`h${z}`}
+        x1={pad}
+        y1={pad + z * S}
+        x2={pad + w}
+        y2={pad + z * S}
+        className="tile"
+      />,
     );
   }
 
   const ceiling = items.filter((i) => i.mount === "ceiling");
   const walls = items.filter((i) => i.mount === "wall");
-  const below = items.filter((i) => i.mount !== "ceiling" && i.mount !== "wall");
+  const below = items.filter(
+    (i) => i.mount !== "ceiling" && i.mount !== "wall",
+  );
 
   return (
     <div className="flex h-full items-center justify-center overflow-auto p-6">
@@ -436,8 +512,20 @@ function CeilingPlan({
         <rect x={pad} y={pad} width={w} height={d} className="outline" />
 
         {/* Centre lines, as on a real RCP */}
-        <line x1={pad + w / 2} y1={pad - 10} x2={pad + w / 2} y2={pad + d + 10} className="cl" />
-        <line x1={pad - 10} y1={pad + d / 2} x2={pad + w + 10} y2={pad + d / 2} className="cl" />
+        <line
+          x1={pad + w / 2}
+          y1={pad - 10}
+          x2={pad + w / 2}
+          y2={pad + d + 10}
+          className="cl"
+        />
+        <line
+          x1={pad - 10}
+          y1={pad + d / 2}
+          x2={pad + w + 10}
+          y2={pad + d / 2}
+          className="cl"
+        />
 
         {/* Furniture below, for orientation only */}
         {below.map((i) => (
@@ -475,7 +563,9 @@ function CeilingPlan({
                 width={vertical ? 10 : along}
                 height={vertical ? along : 10}
                 fill={i.color ?? "#64748b"}
-                stroke={selected === i.id ? "var(--primary)" : "var(--foreground)"}
+                stroke={
+                  selected === i.id ? "var(--primary)" : "var(--foreground)"
+                }
                 strokeWidth={selected === i.id ? 2.5 : 1}
               />
               <title>{`${i.label} — wall @ ${i.position.y.toFixed(2)} m · drag to slide along the wall`}</title>
@@ -490,7 +580,11 @@ function CeilingPlan({
           const r = Math.max(i.size.w, i.size.d) * S * 0.5;
           const on = selected === i.id;
           return (
-            <g key={i.id} className="pick" onPointerDown={(e) => beginDrag(e, i)}>
+            <g
+              key={i.id}
+              className="pick"
+              onPointerDown={(e) => beginDrag(e, i)}
+            >
               <circle
                 cx={cx}
                 cy={cy}
@@ -501,12 +595,38 @@ function CeilingPlan({
                 strokeWidth={on ? 3 : 1.4}
               />
               {/* Crosshair centre mark */}
-              <line x1={cx - r - 8} y1={cy} x2={cx + r + 8} y2={cy} stroke="var(--foreground)" strokeWidth={0.8} opacity={0.7} />
-              <line x1={cx} y1={cy - r - 8} x2={cx} y2={cy + r + 8} stroke="var(--foreground)" strokeWidth={0.8} opacity={0.7} />
-              <text x={cx} y={cy + Math.max(r, 13) + 14} textAnchor="middle" className="lab">
+              <line
+                x1={cx - r - 8}
+                y1={cy}
+                x2={cx + r + 8}
+                y2={cy}
+                stroke="var(--foreground)"
+                strokeWidth={0.8}
+                opacity={0.7}
+              />
+              <line
+                x1={cx}
+                y1={cy - r - 8}
+                x2={cx}
+                y2={cy + r + 8}
+                stroke="var(--foreground)"
+                strokeWidth={0.8}
+                opacity={0.7}
+              />
+              <text
+                x={cx}
+                y={cy + Math.max(r, 13) + 14}
+                textAnchor="middle"
+                className="lab"
+              >
                 {i.tag || i.label}
               </text>
-              <text x={cx} y={cy + Math.max(r, 13) + 25} textAnchor="middle" className="sub">
+              <text
+                x={cx}
+                y={cy + Math.max(r, 13) + 25}
+                textAnchor="middle"
+                className="sub"
+              >
                 AFF {i.position.y.toFixed(2)} m
               </text>
               <title>{`${i.label} — ceiling @ ${i.position.y.toFixed(2)} m · drag to move`}</title>
@@ -528,7 +648,9 @@ function CeilingPlan({
           {room.depth} m
         </text>
         <text x={pad} y={pad + d + 30} className="dim">
-          Reflected ceiling plan · {TILE * 1000} mm tile grid · ceiling {room.height} m
+          {" "}
+          {t("Reflected ceiling plan ·")} {TILE * 1000}{" "}
+          {t("mm tile grid · ceiling")} {room.height} m
         </text>
       </svg>
     </div>
@@ -557,6 +679,7 @@ export function RoomView({
     change: { position?: RoomItem["position"]; rotation?: number },
   ) => void;
 }) {
+  const t = useT();
   const [selected, setSelected] = useState<string | null>(null);
   const [mode, setMode] = useState<"3d" | "ceiling">("3d");
   const [gizmo, setGizmo] = useState<"translate" | "rotate">("translate");
@@ -577,7 +700,7 @@ export function RoomView({
 
   // Re-resolve on every selection change; the group may have just mounted.
   useEffect(() => {
-    setAttached(selected ? groups.current.get(selected) ?? null : null);
+    setAttached(selected ? (groups.current.get(selected) ?? null) : null);
   }, [selected, items, mode]);
 
   /**
@@ -617,17 +740,21 @@ export function RoomView({
         <Boxes size={15} className="text-[var(--primary)]" />
         <span className="text-[13px] font-semibold">{room.name}</span>
         <span className="text-[10px] text-muted-foreground">
-          {room.width}m × {room.depth}m × {room.height}m · {items.length} items
+          {room.width}m × {room.depth}m × {room.height}m · {items.length}{" "}
+          {t("items")}{" "}
         </span>
         <div className="mx-1 h-4 w-px bg-[var(--hairline)]" />
         <div className="flex items-center gap-0.5 rounded-[7px] bg-black/[0.06] p-0.5 dark:bg-white/10">
-          {([
-            ["3d", Rotate3d, "3D view"],
-            ["ceiling", Grid2x2, "Reflected ceiling plan"],
-          ] as const).map(([value, Icon, hint]) => (
+          {(
+            [
+              ["3d", Rotate3d, t("3D view")],
+              ["ceiling", Grid2x2, t("Reflected ceiling plan")],
+            ] as const
+          ).map(([value, Icon, hint]) => (
             <button
               key={value}
-              title={hint}
+              title={t(hint)}
+              aria-label={t(hint)}
               onClick={() => setMode(value)}
               className={cn(
                 "flex h-6 items-center gap-1 rounded-[5px] px-2 text-[11px] transition-colors",
@@ -637,7 +764,7 @@ export function RoomView({
               )}
             >
               <Icon size={12} strokeWidth={2} />
-              {value === "3d" ? "3D" : "Ceiling"}
+              {value === "3d" ? "3D" : t("Ceiling")}
             </button>
           ))}
         </div>
@@ -645,13 +772,16 @@ export function RoomView({
           <>
             <div className="mx-1 h-4 w-px bg-[var(--hairline)]" />
             <div className="flex items-center gap-0.5 rounded-[7px] bg-black/[0.06] p-0.5 dark:bg-white/10">
-              {([
-                ["translate", Move, "Move along X / Y / Z"],
-                ["rotate", RotateCw, "Rotate"],
-              ] as const).map(([value, Icon, hint]) => (
+              {(
+                [
+                  ["translate", Move, t("Move along X / Y / Z")],
+                  ["rotate", RotateCw, t("Rotate")],
+                ] as const
+              ).map(([value, Icon, hint]) => (
                 <button
                   key={value}
-                  title={hint}
+                  title={t(hint)}
+                  aria-label={t(hint)}
                   onClick={() => setGizmo(value)}
                   className={cn(
                     "flex h-6 w-7 items-center justify-center rounded-[5px] transition-colors",
@@ -669,7 +799,7 @@ export function RoomView({
         <div className="mx-1 h-4 w-px bg-[var(--hairline)]" />
         <button
           onClick={onClose}
-          title="Back to schematic (Esc)"
+          title={t("Back to schematic (Esc)")}
           className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-black/[0.06] hover:text-foreground dark:hover:bg-white/10"
         >
           <X size={14} />
@@ -681,7 +811,8 @@ export function RoomView({
           {VIEW_PRESETS.map((p) => (
             <button
               key={p.id}
-              title={p.hint}
+              title={t(p.hint)}
+              aria-label={t(p.hint)}
               onClick={() =>
                 setView((v) => ({ preset: p.id, nonce: v.nonce + 1 }))
               }
@@ -692,7 +823,7 @@ export function RoomView({
                   : "text-muted-foreground hover:bg-black/[0.06] hover:text-foreground dark:hover:bg-white/10",
               )}
             >
-              {p.label}
+              {t(p.label)}
             </button>
           ))}
         </div>
@@ -702,7 +833,10 @@ export function RoomView({
         <div className="glass-panel absolute bottom-4 left-4 z-10 flex items-center gap-2 rounded-[10px] px-2.5 py-1.5">
           <Move3d size={12} className="text-muted-foreground" />
           <span className="text-[10px] text-muted-foreground">
-            Drag to orbit · click an item, then drag its arrows to move it
+            {" "}
+            {t(
+              "Drag to orbit · click an item, then drag its arrows to move it",
+            )}{" "}
           </span>
         </div>
       )}
@@ -710,25 +844,29 @@ export function RoomView({
       {/* Item list */}
       <div className="glass-panel absolute right-4 top-4 z-10 flex max-h-[70vh] w-[210px] flex-col overflow-hidden rounded-[12px]">
         <div className="border-b border-[var(--hairline)] px-3 py-2 text-[11px] font-semibold">
-          Room contents
+          {" "}
+          {t("Room contents")}{" "}
         </div>
         <div className="overflow-y-auto p-1">
           {items.length === 0 && (
             <p className="px-2 py-3 text-[11px] leading-snug text-muted-foreground">
-              Nothing placed yet. Ask the AI to lay out the room, or use the
+              {" "}
+              {t(
+                "Nothing placed yet. Ask the AI to lay out the room, or use the",
+              )}{" "}
               <code className="mx-1 rounded bg-black/10 px-1 dark:bg-white/10">
                 add_room_item
-              </code>
-              tool.
+              </code>{" "}
+              {t("tool.")}{" "}
             </p>
           )}
           {KIND_GROUPS.map(({ title, match }) => {
             const group = items.filter((i) => match(i.kind));
             if (group.length === 0) return null;
             return (
-              <div key={title} className="mb-1">
+              <div key={t(title)} className="mb-1">
                 <div className="px-2 pb-0.5 pt-1.5 text-[8px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/70">
-                  {title}
+                  {t(title)}
                 </div>
                 {group.map((item) => (
                   <button
@@ -746,7 +884,9 @@ export function RoomView({
                       style={{ background: item.color }}
                     />
                     <span className="flex-1 truncate">{item.label}</span>
-                    <span className="shrink-0 text-[9px] opacity-60">{item.mount}</span>
+                    <span className="shrink-0 text-[9px] opacity-60">
+                      {t(item.mount)}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -760,12 +900,14 @@ export function RoomView({
         <div className="glass-panel absolute bottom-4 right-4 z-10 w-[210px] rounded-[12px] p-3">
           <div className="text-[12px] font-semibold">{chosen.label}</div>
           {chosen.tag && (
-            <div className="font-mono text-[10px] text-[var(--primary)]">{chosen.tag}</div>
+            <div className="font-mono text-[10px] text-[var(--primary)]">
+              {chosen.tag}
+            </div>
           )}
           <dl className="mt-2 space-y-0.5 text-[10px] text-muted-foreground">
             <div className="flex justify-between">
-              <dt>Mount</dt>
-              <dd className="capitalize text-foreground">{chosen.mount}</dd>
+              <dt>{t("Mount")}</dt>
+              <dd className="capitalize text-foreground">{t(chosen.mount)}</dd>
             </div>
             {/* X and Z are set by dragging in the views; AFF is numeric,
                 because you cannot drag height on a plan. */}
@@ -780,7 +922,7 @@ export function RoomView({
                     min={0}
                     max={axis === "x" ? room.width : room.depth}
                     value={chosen.position[axis]}
-                    title={`${axis.toUpperCase()} in metres`}
+                    title={`${axis.toUpperCase()} (${t("metres")})`}
                     onChange={(e) =>
                       onMoveItem?.(chosen.id, {
                         position: {
@@ -795,7 +937,7 @@ export function RoomView({
               </dd>
             </div>
             <div className="flex items-center justify-between gap-2">
-              <dt title="Above finished floor">AFF</dt>
+              <dt title={t("Above finished floor")}>AFF</dt>
               <dd className="flex items-center gap-1">
                 <input
                   type="number"
@@ -803,7 +945,7 @@ export function RoomView({
                   min={0}
                   max={room.height}
                   value={chosen.position.y}
-                  title="Height above finished floor, in metres"
+                  title={t("Height above finished floor, in metres")}
                   onChange={(e) =>
                     onMoveItem?.(chosen.id, {
                       position: {
@@ -821,7 +963,7 @@ export function RoomView({
               </dd>
             </div>
             <div className="flex justify-between">
-              <dt>Size</dt>
+              <dt>{t("Size")}</dt>
               <dd className="font-mono text-foreground">
                 {chosen.size.w}×{chosen.size.h}×{chosen.size.d}
               </dd>

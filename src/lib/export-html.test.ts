@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, test } from "vitest";
 import type { Edge, Node } from "@xyflow/react";
 
 import { buildViewerHtml } from "./export-html";
@@ -148,4 +148,20 @@ test("survives an empty drawing", () => {
   });
   expect(html).toContain("<svg");
   expect(html.length).toBeGreaterThan(1000);
+});
+
+// Exported clients receive the current UI language without altering drawing data.
+test.each(["en", "zh-Hant", "ja"] as const)("exports a working localized viewer in %s", async language => {
+  const { setLocale, translate } = await import("./i18n");
+  try {
+    setLocale(language);
+    const html = build();
+    expect(html).toContain(`lang="${language}"`);
+    expect(html).toContain(translate("Room plan", language));
+    expect(html).toContain("MULTI-ROOM AUDIO");
+    expect(html).toContain("DSP-01");
+    const script = html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+    expect(script).toBeTruthy();
+    expect(() => new Function(script!)).not.toThrow();
+  } finally { setLocale("en"); }
 });

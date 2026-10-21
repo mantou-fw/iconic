@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 import {
   db,
   DEFAULT_TOOL_SETTINGS,
@@ -50,14 +51,14 @@ export function parseProject(text: string): ProjectFile {
   try {
     raw = JSON.parse(text);
   } catch {
-    throw new Error("That file isn't valid JSON.");
+    throw new Error(t("That file isn't valid JSON."));
   }
   const p = raw as Partial<ProjectFile>;
   if (p?.kind !== "av-schematic") {
-    throw new Error("That JSON isn't an AV schematic project file.");
+    throw new Error(t("That JSON isn't an AV schematic project file."));
   }
   if (!Array.isArray(p.nodes) || !Array.isArray(p.edges)) {
-    throw new Error("The project file is missing its nodes or edges.");
+    throw new Error(t("The project file is missing its nodes or edges."));
   }
   return {
     kind: "av-schematic",

@@ -5,9 +5,9 @@ change is written straight to IndexedDB, so there is no save button — "Save
 project" exports a file, it does not commit anything.
 
 ```bash
-bun dev            # http://localhost:4321, hot reload on
-bun start          # production mode
-bun run desktop:dev   # Tauri desktop shell (builds the Bun sidecar first)
+npm run dev            # http://localhost:4321, hot reload on
+npm run build && npm start  # Node.js production mode
+npm run desktop:dev   # Electron + TanStack Start (Node.js)
 ```
 
 ---
@@ -172,7 +172,7 @@ representations.
 | Interactive viewer | One self-contained `.html` file — pannable, zoomable, no server needed |
 | 3D room view | Switches to the room |
 
-The coloured dot next to the menu is the **AI bridge status**: grey = offline,
+The coloured dot next to the menu is the **desktop command channel status**: grey = offline,
 amber = connecting, green = live. If it is not green, an agent cannot drive the
 canvas.
 

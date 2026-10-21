@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { validateActions } from "../../desktop/commands.mjs";
 
 import type { SignalType } from "./signal-types";
 import type { ItemKind, MountKind } from "./room";
@@ -98,78 +99,51 @@ export type AICommand =
 export type AIReply =
   | { type: "ack"; command: string; ok: true; detail?: unknown }
   | { type: "error"; command: string; ok: false; message: string }
-  | { type: "state"; devices: unknown[]; cables: unknown[] };
+  | { type: "state"; devices: unknown[]; cables: unknown[]; drawing?: unknown; room?: unknown };
 
-/**
- * Keeps a socket open to the Bun relay and hands every inbound command to
- * `handle`, publishing whatever it returns back to the agent. Reconnects with
- * a simple backoff so the bridge survives dev-server restarts.
- */
+/** Connects the editor to the local MCP command broker in TanStack Start. */
 export function useAIBridge(handle: (cmd: AICommand) => AIReply | void) {
   const [status, setStatus] = useState<AIStatus>("connecting");
   const handler = useRef(handle);
   handler.current = handle;
-
   useEffect(() => {
-    let socket: WebSocket | null = null;
-    let retry: ReturnType<typeof setTimeout> | null = null;
-    let attempts = 0;
-    let closed = false;
-
-    const connect = () => {
-      if (closed) return;
-      const proto = location.protocol === "https:" ? "wss" : "ws";
-      socket = new WebSocket(`${proto}://${location.host}/ws?role=canvas`);
-
-      socket.onopen = () => {
-        attempts = 0;
-        setStatus("live");
-      };
-
-      socket.onmessage = (event) => {
-        let msg: { type?: string };
+    const abort = new AbortController();
+    const key = "iconic-mcp-canvas-id";
+    const canvasId = sessionStorage.getItem(key) ?? crypto.randomUUID();
+    sessionStorage.setItem(key, canvasId);
+    const post = async (body: unknown) => {
+      const response = await fetch('/api/canvas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: abort.signal });
+      if (!response.ok) throw new Error('Canvas bridge disconnected');
+      return response.json();
+    };
+    const run = async () => {
+      while (!abort.signal.aborted) {
         try {
-          msg = JSON.parse(event.data);
-        } catch {
-          return;
-        }
-        // Relay bookkeeping, not a canvas command.
-        if (!msg?.type || msg.type === "hello" || msg.type === "peers") return;
-
-        try {
-          const reply = handler.current(msg as AICommand);
-          if (reply && socket?.readyState === WebSocket.OPEN) {
-            socket.send(JSON.stringify(reply));
+          setStatus('live');
+          const request = await post({ action: 'poll', canvasId });
+          if (!request) continue;
+          let reply: AIReply;
+          try {
+            validateActions([request.command]);
+            reply = handler.current(request.command) ?? { type: 'error', command: request.command.type, ok: false, message: 'Unsupported command' };
+            await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+          } catch (error) {
+            reply = { type: 'error', command: request.command.type, ok: false, message: error instanceof Error ? error.message : String(error) };
           }
-        } catch (err) {
-          socket?.send(
-            JSON.stringify({
-              type: "error",
-              command: msg.type,
-              ok: false,
-              message: err instanceof Error ? err.message : String(err),
-            }),
-          );
+          await post({ action: 'reply', canvasId, id: request.id, reply });
+        } catch {
+          if (abort.signal.aborted) break;
+          setStatus('connecting');
+          await new Promise<void>(resolve => {
+            const finish = () => { clearTimeout(timer); abort.signal.removeEventListener('abort', finish); resolve(); };
+            const timer = setTimeout(finish, 1500);
+            abort.signal.addEventListener('abort', finish, { once: true });
+          });
         }
-      };
-
-      socket.onclose = () => {
-        if (closed) return;
-        setStatus("connecting");
-        attempts += 1;
-        retry = setTimeout(connect, Math.min(1000 * attempts, 8000));
-      };
-
-      socket.onerror = () => socket?.close();
+      }
     };
-
-    connect();
-    return () => {
-      closed = true;
-      if (retry) clearTimeout(retry);
-      socket?.close();
-    };
+    void run();
+    return () => abort.abort();
   }, []);
-
   return status;
 }

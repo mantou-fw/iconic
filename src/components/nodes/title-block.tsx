@@ -1,3 +1,4 @@
+import { useT } from "@/lib/i18n";
 import { memo } from "react";
 import { NodeResizer, useReactFlow, type NodeProps } from "@xyflow/react";
 
@@ -104,7 +105,12 @@ function Pair({ children }: { children: React.ReactNode }) {
   );
 }
 
-function TitleBlockImpl({ id, data, selected }: NodeProps & { data: TitleBlockData }) {
+function TitleBlockImpl({
+  id,
+  data,
+  selected,
+}: NodeProps & { data: TitleBlockData }) {
+  const t = useT();
   const { updateNodeData } = useReactFlow();
   const signals = useSignals();
   const set = (key: keyof TitleBlockData) => (v: string) =>
@@ -141,7 +147,8 @@ function TitleBlockImpl({ id, data, selected }: NodeProps & { data: TitleBlockDa
       {/* Signal legend — mirrors the cable colours used on the drawing */}
       <div className="border-b border-[var(--hairline)] px-2 py-1.5">
         <div className="mb-1 text-[7px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/70">
-          Signal Types
+          {" "}
+          {t("Signal Types")}{" "}
         </div>
         <div className="grid grid-cols-2 gap-x-2 gap-y-0.5">
           {signals.map((s) => (
@@ -161,19 +168,20 @@ function TitleBlockImpl({ id, data, selected }: NodeProps & { data: TitleBlockDa
       {/* Device status key, as on issued AV packages */}
       <div className="border-b border-[var(--hairline)] px-2 py-1.5">
         <div className="mb-1 text-[7px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/70">
-          Device Status
+          {" "}
+          {t("Device Status")}{" "}
         </div>
         <div className="flex gap-2.5">
           {[
-            { label: "New", style: {} },
+            { label: t("New"), style: {} },
             {
-              label: "Existing",
+              label: t("Existing"),
               style: {
                 backgroundImage:
                   "repeating-linear-gradient(45deg, currentColor 0 1px, transparent 1px 4px)",
               },
             },
-            { label: "Future", style: { borderStyle: "dashed" as const } },
+            { label: t("Future"), style: { borderStyle: "dashed" as const } },
           ].map((s) => (
             <div key={s.label} className="flex items-center gap-1">
               <span
@@ -181,7 +189,7 @@ function TitleBlockImpl({ id, data, selected }: NodeProps & { data: TitleBlockDa
                 style={s.style}
               />
               <span className="text-[8px] uppercase text-muted-foreground">
-                {s.label}
+                {t(s.label)}
               </span>
             </div>
           ))}
@@ -189,37 +197,82 @@ function TitleBlockImpl({ id, data, selected }: NodeProps & { data: TitleBlockDa
       </div>
 
       {/* Project identification */}
-      <Field label="Client" value={data.client} onChange={set("client")} />
-      <Field label="Project" value={data.project} onChange={set("project")} />
-      <Field label="Title" value={data.title} onChange={set("title")} big center />
+      <Field label={t("Client")} value={data.client} onChange={set("client")} />
       <Field
-        label="Description"
+        label={t("Project")}
+        value={data.project}
+        onChange={set("project")}
+      />
+      <Field
+        label={t("Title")}
+        value={data.title}
+        onChange={set("title")}
+        big
+        center
+      />
+      <Field
+        label={t("Description")}
         value={data.description}
         onChange={set("description")}
       />
 
       <Pair>
         <Field
-          label="Project Manager"
+          label={t("Project Manager")}
           value={data.projectManager}
           onChange={set("projectManager")}
         />
-        <Field label="Drawn By" value={data.drawnBy} onChange={set("drawnBy")} />
+        <Field
+          label={t("Drawn By")}
+          value={data.drawnBy}
+          onChange={set("drawnBy")}
+        />
       </Pair>
       <Pair>
-        <Field label="Checked By" value={data.checkedBy} onChange={set("checkedBy")} />
-        <Field label="Date" value={data.date} onChange={set("date")} mono />
+        <Field
+          label={t("Checked By")}
+          value={data.checkedBy}
+          onChange={set("checkedBy")}
+        />
+        <Field
+          label={t("Date")}
+          value={data.date}
+          onChange={set("date")}
+          mono
+        />
       </Pair>
       <Pair>
-        <Field label="Revised" value={data.revised} onChange={set("revised")} mono />
-        <Field label="Rev" value={data.rev} onChange={set("rev")} mono center />
+        <Field
+          label={t("Revised")}
+          value={data.revised}
+          onChange={set("revised")}
+          mono
+        />
+        <Field
+          label={t("Rev")}
+          value={data.rev}
+          onChange={set("rev")}
+          mono
+          center
+        />
       </Pair>
       <Pair>
-        <Field label="Scale" value={data.scale} onChange={set("scale")} center />
-        <Field label="Page" value={data.page} onChange={set("page")} mono center />
+        <Field
+          label={t("Scale")}
+          value={data.scale}
+          onChange={set("scale")}
+          center
+        />
+        <Field
+          label={t("Page")}
+          value={data.page}
+          onChange={set("page")}
+          mono
+          center
+        />
       </Pair>
       <Field
-        label="Project Number"
+        label={t("Project Number")}
         value={data.projectNumber}
         onChange={set("projectNumber")}
         mono
@@ -228,7 +281,8 @@ function TitleBlockImpl({ id, data, selected }: NodeProps & { data: TitleBlockDa
       {/* Legal notice */}
       <div className="flex-1 px-2 py-1.5">
         <div className="mb-0.5 text-[7px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/70">
-          Notice
+          {" "}
+          {t("Notice")}{" "}
         </div>
         <textarea
           value={data.notice}

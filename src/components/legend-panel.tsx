@@ -1,3 +1,4 @@
+import { useT } from "@/lib/i18n";
 import { useState } from "react";
 import { Pencil, Plus, X } from "lucide-react";
 
@@ -17,6 +18,7 @@ export function LegendPanel({
   signals: SignalDef[];
   onChange: (signals: SignalDef[]) => void;
 }) {
+  const t = useT();
   const [editing, setEditing] = useState(false);
 
   const patch = (key: string, p: Partial<SignalDef>) =>
@@ -38,7 +40,7 @@ export function LegendPanel({
           </div>
         ))}
         <button
-          title="Edit legend"
+          title={t("Edit legend")}
           onClick={() => setEditing((v) => !v)}
           className={cn(
             "flex h-5 w-5 items-center justify-center rounded-md text-muted-foreground transition-colors",
@@ -68,18 +70,18 @@ export function LegendPanel({
                 />
                 <input
                   value={s.short}
-                  placeholder="CODE"
+                  placeholder={t("CODE")}
                   onChange={(e) => patch(s.key, { short: e.target.value.toUpperCase() })}
                   className="w-14 shrink-0 rounded-md border border-[var(--hairline)] bg-background/70 px-1 py-1 text-center font-mono text-[9px] uppercase outline-none focus:ring-2 focus:ring-[var(--primary)]/35"
                 />
                 <input
                   value={s.label}
-                  placeholder="Label"
+                  placeholder={t("Label")}
                   onChange={(e) => patch(s.key, { label: e.target.value })}
                   className="min-w-0 flex-1 rounded-md border border-[var(--hairline)] bg-background/70 px-1.5 py-1 text-[10px] outline-none focus:ring-2 focus:ring-[var(--primary)]/35"
                 />
                 <button
-                  title="Remove signal"
+                  title={t("Remove signal")}
                   onClick={() => remove(s.key)}
                   className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-red-500/10 hover:text-red-500"
                 >
@@ -92,8 +94,7 @@ export function LegendPanel({
             onClick={add}
             className="nodrag nopan mt-1.5 flex w-full items-center justify-center gap-1 rounded-md py-1 text-[10px] text-muted-foreground/80 transition-colors hover:bg-black/[0.04] hover:text-foreground dark:hover:bg-white/[0.06]"
           >
-            <Plus size={11} strokeWidth={2.2} /> Add signal
-          </button>
+            <Plus size={11} strokeWidth={2.2} /> {t("Add signal")} </button>
         </div>
       )}
     </div>

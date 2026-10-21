@@ -1,4 +1,4 @@
-import { expect, test } from "bun:test";
+import { expect, test } from "vitest";
 import type { Node } from "@xyflow/react";
 
 import { alignBoxes, distributeBoxes } from "./align";

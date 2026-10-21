@@ -1,3 +1,4 @@
+import { t } from "./i18n";
 import { getNodesBounds, getViewportForBounds, type Node } from "@xyflow/react";
 import { toPng, toSvg } from "html-to-image";
 import { jsPDF } from "jspdf";
@@ -17,7 +18,7 @@ const MAX_EDGE = 8000;
  */
 function viewportElement(): HTMLElement {
   const el = document.querySelector<HTMLElement>(".react-flow__viewport");
-  if (!el) throw new Error("Nothing to export — the canvas is not ready.");
+  if (!el) throw new Error(t("Nothing to export — the canvas is not ready."));
   return el;
 }
 
@@ -48,12 +49,12 @@ export async function exportDrawing({
   filename,
 }: Options) {
   if (nodes.length === 0) {
-    throw new Error("Nothing to export — the canvas is empty.");
+    throw new Error(t("Nothing to export — the canvas is empty."));
   }
 
   const bounds = getNodesBounds(nodes);
   if (!bounds.width || !bounds.height) {
-    throw new Error("Nothing to export — the canvas is empty.");
+    throw new Error(t("Nothing to export — the canvas is empty."));
   }
 
   // Render at 1:1 in flow units, then let `scale` drive the pixel density.

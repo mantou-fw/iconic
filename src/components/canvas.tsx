@@ -1,3 +1,4 @@
+import { useT } from "@/lib/i18n";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
@@ -42,7 +43,10 @@ import {
 } from "@/components/nodes/av-device-node";
 import { LabeledEdge } from "@/components/edges/labeled-edge";
 import { ArrowEdge } from "@/components/edges/arrow-edge";
-import { IconTextNode, makeIconTextData } from "@/components/nodes/icon-text-node";
+import {
+  IconTextNode,
+  makeIconTextData,
+} from "@/components/nodes/icon-text-node";
 import { ShapeNode, makeShapeData } from "@/components/nodes/shape-node";
 import { FileMenu } from "@/components/file-menu";
 import { useAIBridge, type AICommand, type AIReply } from "@/lib/ai-bridge";
@@ -63,13 +67,28 @@ import { assignLanes } from "@/lib/lanes";
 import { ObstaclesContext, type Rect } from "@/lib/obstacles";
 import { useHistory, type Snapshot } from "@/lib/history";
 import { TitleBlock, makeTitleBlockData } from "@/components/nodes/title-block";
-import { RackNode, makeRackData, makeRackItem, type RackItem } from "@/components/nodes/rack-node";
+import {
+  RackNode,
+  makeRackData,
+  makeRackItem,
+  type RackItem,
+} from "@/components/nodes/rack-node";
 import { AlignBar } from "@/components/align-bar";
-import { alignBoxes, distributeBoxes, type AlignMode, type DistributeMode } from "@/lib/align";
+import {
+  alignBoxes,
+  distributeBoxes,
+  type AlignMode,
+  type DistributeMode,
+} from "@/lib/align";
 import { exportDrawing, type ImageFormat } from "@/lib/export-image";
 import { buildViewerHtml } from "@/lib/export-html";
 import { RoomView } from "@/components/room-view";
-import { DEFAULT_ROOM, makeRoomItem, type RoomItem, type RoomSpec } from "@/lib/room";
+import {
+  DEFAULT_ROOM,
+  makeRoomItem,
+  type RoomItem,
+  type RoomSpec,
+} from "@/lib/room";
 import { ThemeContext, useTheme } from "@/lib/theme";
 import { arrowMarkers } from "@/lib/arrow-direction";
 
@@ -150,10 +169,13 @@ function decorateEdge(edge: Edge, nodes: Node[], signals: SignalDef[]): Edge {
   const target = nodes.find((n) => n.id === edge.target);
   const ports = (source?.data as AVDeviceData | undefined)?.ports;
   const port = ports?.find((p) => p.id === edge.sourceHandle);
-  const color = port ? signalColor(signals, port.signal) : "var(--muted-foreground)";
+  const color = port
+    ? signalColor(signals, port.signal)
+    : "var(--muted-foreground)";
   // AV devices have ports/obstacle semantics that need the cable-run router;
   // a plain arrow is enough for connections between generic nodes.
-  const usesCableRouting = source?.type === "database" || target?.type === "database";
+  const usesCableRouting =
+    source?.type === "database" || target?.type === "database";
   const type = usesCableRouting ? "labeled" : "arrow";
   const data = { label: "", direction: "forward" as const, ...edge.data };
   return {
@@ -163,11 +185,19 @@ function decorateEdge(edge: Edge, nodes: Node[], signals: SignalDef[]): Edge {
     style: { stroke: color, strokeWidth: 2 },
     ...(type === "arrow"
       ? arrowMarkers(data.direction, color)
-      : { markerEnd: { type: MarkerType.ArrowClosed, color, width: 16, height: 16 } }),
+      : {
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color,
+            width: 16,
+            height: 16,
+          },
+        }),
   };
 }
 
 function CanvasInner() {
+  const t = useT();
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [tool, setTool] = useState<Tool>("select");
@@ -196,22 +226,32 @@ function CanvasInner() {
 
   const loadFromDb = useCallback(async () => {
     {
-      const [dbNodes, dbEdges, dbDrawings, viewport, dbSettings, dbSignals, dbRoom, dbItems] =
-        await Promise.all([
-          db.nodes.toArray(),
-          db.edges.toArray(),
-          db.drawings.toArray(),
-          db.viewport.get("viewport"),
-          db.settings.get("tools"),
-          db.legend.get("signals"),
-          db.room.get("room"),
-          db.roomItems.toArray(),
-        ]);
+      const [
+        dbNodes,
+        dbEdges,
+        dbDrawings,
+        viewport,
+        dbSettings,
+        dbSignals,
+        dbRoom,
+        dbItems,
+      ] = await Promise.all([
+        db.nodes.toArray(),
+        db.edges.toArray(),
+        db.drawings.toArray(),
+        db.viewport.get("viewport"),
+        db.settings.get("tools"),
+        db.legend.get("signals"),
+        db.room.get("room"),
+        db.roomItems.toArray(),
+      ]);
 
       setRoom(dbRoom ?? DEFAULT_ROOM);
       setRoomItems(dbItems);
       const currentSignals =
-        dbSignals?.items && dbSignals.items.length > 0 ? dbSignals.items : DEFAULT_SIGNALS;
+        dbSignals?.items && dbSignals.items.length > 0
+          ? dbSignals.items
+          : DEFAULT_SIGNALS;
       setSignals(currentSignals);
 
       const flowNodes: Node[] = dbNodes.map((n) => ({
@@ -354,10 +394,7 @@ function CanvasInner() {
               midX: (e.data as any)?.midX as number | undefined,
               midY: (e.data as any)?.midY as number | undefined,
               direction: (e.data as any)?.direction as
-                | "forward"
-                | "backward"
-                | "both"
-                | undefined,
+                "forward" | "backward" | "both" | undefined,
             })),
           );
 
@@ -437,7 +474,15 @@ function CanvasInner() {
 
   const placeNode = useCallback(
     (
-      type: "text" | "memo" | "database" | "icon-text" | "shape" | "zone" | "titleblock" | "rack",
+      type:
+        | "text"
+        | "memo"
+        | "database"
+        | "icon-text"
+        | "shape"
+        | "zone"
+        | "titleblock"
+        | "rack",
       at: Point,
     ) => {
       const base = { id: nextId(), position: at, selected: false };
@@ -648,7 +693,9 @@ function CanvasInner() {
   const onConnect: OnConnect = useCallback(
     (connection: Connection) =>
       setEdges((eds) =>
-        addEdge(connection, eds).map((e) => decorateEdge(e, rf.getNodes(), signals)),
+        addEdge(connection, eds).map((e) =>
+          decorateEdge(e, rf.getNodes(), signals),
+        ),
       ),
     [setEdges, rf, signals],
   );
@@ -744,7 +791,7 @@ function CanvasInner() {
   );
 
   const onClear = useCallback(async () => {
-    if (!confirm("Clear the entire canvas? This cannot be undone.")) return;
+    if (!confirm(t("Clear the entire canvas? This cannot be undone."))) return;
     setNodes([]);
     setEdges([]);
     await db.transaction("rw", db.nodes, db.edges, db.drawings, async () => {
@@ -752,7 +799,7 @@ function CanvasInner() {
       await db.edges.clear();
       await db.drawings.clear();
     });
-  }, [setNodes, setEdges]);
+  }, [setNodes, setEdges, t]);
 
   /* ------------------------------------------------------- file in/out */
 
@@ -778,14 +825,20 @@ function CanvasInner() {
         await writeProject(project);
         await loadFromDb();
       } catch (err) {
-        alert(err instanceof Error ? err.message : "Could not open that file.");
+        alert(
+          err instanceof Error ? err.message : t("Could not open that file."),
+        );
       }
     },
-    [loadFromDb],
+    [loadFromDb, t],
   );
 
   const onExportXlsx = useCallback(async () => {
-    const { nodes: dbNodes, edges: dbEdges, signals: dbSignals } = await readProject();
+    const {
+      nodes: dbNodes,
+      edges: dbEdges,
+      signals: dbSignals,
+    } = await readProject();
     downloadBlob(
       workbookBlob(buildWorkbook(dbNodes, dbEdges, dbSignals)),
       `av-schedules-${stamp()}.xlsx`,
@@ -810,7 +863,9 @@ function CanvasInner() {
           const parent = n.parentId
             ? nds.find((p) => p.id === n.parentId)
             : undefined;
-          const origin = parent ? absolutePosition(parent, nds) : { x: 0, y: 0 };
+          const origin = parent
+            ? absolutePosition(parent, nds)
+            : { x: 0, y: 0 };
           return { ...n, position: { x: to.x - origin.x, y: to.y - origin.y } };
         }),
       );
@@ -822,7 +877,12 @@ function CanvasInner() {
     (mode: AlignMode) => {
       const all = rf.getNodes();
       applyMoves(
-        alignBoxes(selectedNodes, mode, (n) => absolutePosition(n, all), sizeOf),
+        alignBoxes(
+          selectedNodes,
+          mode,
+          (n) => absolutePosition(n, all),
+          sizeOf,
+        ),
       );
     },
     [applyMoves, rf, selectedNodes],
@@ -832,7 +892,12 @@ function CanvasInner() {
     (mode: DistributeMode) => {
       const all = rf.getNodes();
       applyMoves(
-        distributeBoxes(selectedNodes, mode, (n) => absolutePosition(n, all), sizeOf),
+        distributeBoxes(
+          selectedNodes,
+          mode,
+          (n) => absolutePosition(n, all),
+          sizeOf,
+        ),
       );
     },
     [applyMoves, rf, selectedNodes],
@@ -845,10 +910,10 @@ function CanvasInner() {
       try {
         await exportDrawing({ nodes: rf.getNodes(), format });
       } catch (err) {
-        alert(err instanceof Error ? err.message : "Export failed.");
+        alert(err instanceof Error ? err.message : t("Export failed."));
       }
     },
-    [rf],
+    [rf, t],
   );
 
   const onExportHtml = useCallback(() => {
@@ -1024,7 +1089,11 @@ function CanvasInner() {
               },
             }),
           );
-          return ok("add_rack", { tag: cmd.tag, units, items: equipment.length });
+          return ok("add_rack", {
+            tag: cmd.tag,
+            units,
+            items: equipment.length,
+          });
         }
 
         case "add_title_block": {
@@ -1229,7 +1298,10 @@ function CanvasInner() {
     () => history.undo({ nodes, edges }, applySnapshot),
     [history, nodes, edges, applySnapshot],
   );
-  const redo = useCallback(() => history.redo(applySnapshot), [history, applySnapshot]);
+  const redo = useCallback(
+    () => history.redo(applySnapshot),
+    [history, applySnapshot],
+  );
 
   /* ------------------------------------------------------- duplicate */
 
@@ -1332,8 +1404,7 @@ function CanvasInner() {
       }
 
       const match = TOOLS.find(
-        (t) =>
-          t.key.toLowerCase() === e.key.toLowerCase() || t.digit === e.key,
+        (t) => t.key.toLowerCase() === e.key.toLowerCase() || t.digit === e.key,
       );
       if (match) {
         e.preventDefault();
@@ -1443,179 +1514,186 @@ function CanvasInner() {
 
   return (
     <ThemeContext.Provider value={resolved}>
-    <div className="relative h-screen w-full">
-      {/* Overlaid rather than swapped in: unmounting ReactFlow would empty its
+      <div className="relative h-screen w-full">
+        {/* Overlaid rather than swapped in: unmounting ReactFlow would empty its
           store, and both persist() and the AI commands read from it. */}
-      {showRoom && (
-        <RoomView
-          room={room}
-          items={roomItems}
-          onClose={() => setShowRoom(false)}
-          onMoveItem={(id, change) =>
-            setRoomItems((prev) =>
-              prev.map((i) => (i.id === id ? { ...i, ...change } : i)),
-            )
-          }
-        />
-      )}
-      <FileMenu
-        onOpen={() => projectInputRef.current?.click()}
-        onSaveJson={onSaveJson}
-        onExportXlsx={onExportXlsx}
-        onExportImage={onExportImage}
-        onExportHtml={onExportHtml}
-        onOpenRoom={() => setShowRoom(true)}
-        roomItemCount={roomItems.length}
-        theme={theme}
-        onThemeChange={setTheme}
-        aiStatus={aiStatus}
-      />
-      <input
-        ref={projectInputRef}
-        type="file"
-        accept="application/json,.json"
-        className="hidden"
-        onChange={onProjectFile}
-      />
-      <Toolbar
-        tool={tool}
-        onToolChange={changeTool}
-        onClear={onClear}
-        snapToGrid={settings.snapToGrid}
-        onToggleSnap={toggleSnap}
-      />
-      {selectedNodes.length > 1 && (
-        <AlignBar
-          count={selectedNodes.length}
-          onAlign={onAlign}
-          onDistribute={onDistribute}
-        />
-      )}
-
-      {panel && (
-        <PropertiesPanel
-          mode={panel.mode}
-          scope={panel.scope}
-          color={panel.color}
-          onColorChange={applyColor}
-          strokeWidth={
-            panel.mode === "pen"
-              ? panel.scope === "selection"
-                ? ((panel.targets[0]!.data as any).strokeWidth as number)
-                : settings.penWidth
-              : undefined
-          }
-          onStrokeWidthChange={
-            panel.mode === "pen" ? applyStrokeWidth : undefined
-          }
-          fontSize={
-            panel.mode === "text" || panel.mode === "memo"
-              ? panel.scope === "selection"
-                ? ((panel.targets[0]!.data as any).fontSize as number)
-                : settings.textSize
-              : undefined
-          }
-          onFontSizeChange={
-            panel.mode === "text" || panel.mode === "memo"
-              ? applyFontSize
-              : undefined
-          }
-        />
-      )}
-
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={onFileChange}
-      />
-
-      <div
-        ref={paneRef}
-        className="relative h-full w-full"
-        style={{ cursor: CURSORS[tool] }}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-      >
-        <ObstaclesContext.Provider value={obstacles}>
-        <SignalsContext.Provider value={signals}>
-        <ReactFlow
-          nodes={nodes}
-          edges={laneEdges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          onPaneClick={onPaneClick}
-          onNodeDragStop={onNodeDragStop}
-          nodeTypes={nodeTypes}
-          edgeTypes={edgeTypes}
-          panOnDrag={tool === "pan" ? true : isSelect ? [1, 2] : false}
-          selectionOnDrag={isSelect}
-          nodesDraggable={isSelect}
-          nodesConnectable={isSelect}
-          elementsSelectable={isSelect}
-          zoomOnDoubleClick={isSelect}
-          // Shift adds to the selection. Dragging the pane already box-selects
-          // via selectionOnDrag, so Shift is deliberately not bound to that too.
-          multiSelectionKeyCode="Shift"
-          deleteKeyCode={["Backspace", "Delete"]}
-          snapToGrid={settings.snapToGrid}
-          snapGrid={[settings.gridSize, settings.gridSize]}
-          connectionRadius={24}
-          proOptions={{ hideAttribution: true }}
-          fitView
-        >
-          <Background
-            variant={
-              resolved === "autocad"
-                ? BackgroundVariant.Lines
-                : BackgroundVariant.Dots
-            }
-            gap={resolved === "autocad" ? 32 : 16}
-            size={1}
-            color="var(--dots)"
-          />
-          <Controls showInteractive={false} />
-          <MiniMap
-            pannable
-            zoomable
-            maskColor="rgba(0,0,0,0.06)"
-            className="!bg-[var(--glass)] !backdrop-blur-xl"
-            nodeColor={(n) =>
-              n.type === "database"
-                ? "#94a3b8"
-                : (((n.data as any)?.color as string) ?? "#cbd5e1")
+        {showRoom && (
+          <RoomView
+            room={room}
+            items={roomItems}
+            onClose={() => setShowRoom(false)}
+            onMoveItem={(id, change) =>
+              setRoomItems((prev) =>
+                prev.map((i) => (i.id === id ? { ...i, ...change } : i)),
+              )
             }
           />
-          {/* pointer-events-none: the panel's offset box would otherwise sit
-              over the zoom controls and swallow their clicks. */}
-          <Panel position="bottom-left" className="pointer-events-none">
-            <div className="pointer-events-auto ml-12">
-              <LegendPanel signals={signals} onChange={setSignals} />
-            </div>
-          </Panel>
-        </ReactFlow>
-        </SignalsContext.Provider>
-        </ObstaclesContext.Provider>
-
-        {/* Live pen stroke, drawn in screen space above the graph. */}
-        {preview.length > 1 && (
-          <svg className="pointer-events-none absolute inset-0 h-full w-full">
-            <path
-              d={pointsToPath(preview)}
-              fill="none"
-              stroke={settings.penColor}
-              strokeWidth={settings.penWidth * rf.getZoom()}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
         )}
+        <FileMenu
+          onOpen={() => projectInputRef.current?.click()}
+          onSaveJson={onSaveJson}
+          onExportXlsx={onExportXlsx}
+          onExportImage={onExportImage}
+          onExportHtml={onExportHtml}
+          onOpenRoom={() => setShowRoom(true)}
+          roomItemCount={roomItems.length}
+          theme={theme}
+          onThemeChange={setTheme}
+          aiStatus={aiStatus}
+        />
+        <input
+          ref={projectInputRef}
+          type="file"
+          accept="application/json,.json"
+          className="hidden"
+          onChange={onProjectFile}
+        />
+        <Toolbar
+          tool={tool}
+          onToolChange={changeTool}
+          onClear={onClear}
+          snapToGrid={settings.snapToGrid}
+          onToggleSnap={toggleSnap}
+        />
+        {selectedNodes.length > 1 && (
+          <AlignBar
+            count={selectedNodes.length}
+            onAlign={onAlign}
+            onDistribute={onDistribute}
+          />
+        )}
+
+        {panel && (
+          <PropertiesPanel
+            mode={panel.mode}
+            scope={panel.scope}
+            color={panel.color}
+            onColorChange={applyColor}
+            strokeWidth={
+              panel.mode === "pen"
+                ? panel.scope === "selection"
+                  ? ((panel.targets[0]!.data as any).strokeWidth as number)
+                  : settings.penWidth
+                : undefined
+            }
+            onStrokeWidthChange={
+              panel.mode === "pen" ? applyStrokeWidth : undefined
+            }
+            fontSize={
+              panel.mode === "text" || panel.mode === "memo"
+                ? panel.scope === "selection"
+                  ? ((panel.targets[0]!.data as any).fontSize as number)
+                  : settings.textSize
+                : undefined
+            }
+            onFontSizeChange={
+              panel.mode === "text" || panel.mode === "memo"
+                ? applyFontSize
+                : undefined
+            }
+          />
+        )}
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={onFileChange}
+        />
+
+        <div
+          ref={paneRef}
+          className="relative h-full w-full"
+          style={{ cursor: CURSORS[tool] }}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+        >
+          <ObstaclesContext.Provider value={obstacles}>
+            <SignalsContext.Provider value={signals}>
+              <ReactFlow
+                ariaLabelConfig={{
+                  "controls.ariaLabel": t("Control panel"),
+                  "minimap.ariaLabel": t("Mini map"),
+                  "controls.zoomIn.ariaLabel": t("Zoom in"),
+                  "controls.zoomOut.ariaLabel": t("Zoom out"),
+                  "controls.fitView.ariaLabel": t("Fit view"),
+                }}
+                nodes={nodes}
+                edges={laneEdges}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                onConnect={onConnect}
+                onPaneClick={onPaneClick}
+                onNodeDragStop={onNodeDragStop}
+                nodeTypes={nodeTypes}
+                edgeTypes={edgeTypes}
+                panOnDrag={tool === "pan" ? true : isSelect ? [1, 2] : false}
+                selectionOnDrag={isSelect}
+                nodesDraggable={isSelect}
+                nodesConnectable={isSelect}
+                elementsSelectable={isSelect}
+                zoomOnDoubleClick={isSelect}
+                // Shift adds to the selection. Dragging the pane already box-selects
+                // via selectionOnDrag, so Shift is deliberately not bound to that too.
+                multiSelectionKeyCode="Shift"
+                deleteKeyCode={["Backspace", "Delete"]}
+                snapToGrid={settings.snapToGrid}
+                snapGrid={[settings.gridSize, settings.gridSize]}
+                connectionRadius={24}
+                proOptions={{ hideAttribution: true }}
+                fitView
+              >
+                <Background
+                  variant={
+                    resolved === "autocad"
+                      ? BackgroundVariant.Lines
+                      : BackgroundVariant.Dots
+                  }
+                  gap={resolved === "autocad" ? 32 : 16}
+                  size={1}
+                  color="var(--dots)"
+                />
+                <Controls showInteractive={false} />
+                <MiniMap
+                  pannable
+                  zoomable
+                  maskColor="rgba(0,0,0,0.06)"
+                  className="!bg-[var(--glass)] !backdrop-blur-xl"
+                  nodeColor={(n) =>
+                    n.type === "database"
+                      ? "#94a3b8"
+                      : (((n.data as any)?.color as string) ?? "#cbd5e1")
+                  }
+                />
+                {/* pointer-events-none: the panel's offset box would otherwise sit
+              over the zoom controls and swallow their clicks. */}
+                <Panel position="bottom-left" className="pointer-events-none">
+                  <div className="pointer-events-auto ml-12">
+                    <LegendPanel signals={signals} onChange={setSignals} />
+                  </div>
+                </Panel>
+              </ReactFlow>
+            </SignalsContext.Provider>
+          </ObstaclesContext.Provider>
+
+          {/* Live pen stroke, drawn in screen space above the graph. */}
+          {preview.length > 1 && (
+            <svg className="pointer-events-none absolute inset-0 h-full w-full">
+              <path
+                d={pointsToPath(preview)}
+                fill="none"
+                stroke={settings.penColor}
+                strokeWidth={settings.penWidth * rf.getZoom()}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          )}
+        </div>
       </div>
-    </div>
     </ThemeContext.Provider>
   );
 }
