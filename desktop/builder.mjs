@@ -7,7 +7,7 @@ export function configuration({ platform, arch, version, afterPack }) {
     directories: { app: "desktop", output: path.join("release", `${platform}-${arch}`) },
     files: ["assets/*", "*.mjs", "package.json", "!**/*.test.*", "!node_modules/**/*"],
     extraMetadata: { version },
-    extraResources: [{ from: ".output", to: "web" }],
+    extraResources: [{ from: ".output", to: "web" }, { from: "LICENSE", to: "LICENSE" }],
     asar: true,
     npmRebuild: false,
     afterPack,

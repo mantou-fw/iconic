@@ -8,7 +8,7 @@ test('validates local URL and emits isolated argument arrays for paths with spac
   const options = parseOptions(['--agent','codex','--url','http://127.0.0.1:8123/','--with-skill','--dry-run']);
   const plan = setupPlan(options,'/tmp/AV pack $(not-shell)',process.execPath);
   expect(plan.config.mcpServers['av-schematic'].env.AV_CANVAS_URL).toBe('http://127.0.0.1:8123');
-  expect(plan.registration.args.at(-1)).toBe('/tmp/AV pack $(not-shell)/mcp/server.mjs');
+  expect(plan.registration.args.at(-1)).toBe(path.join('/tmp/AV pack $(not-shell)', 'mcp', 'server.mjs'));
   expect(plan.skill.args).toContain('/tmp/AV pack $(not-shell)');
   for (const url of ['https://localhost','http://example.com','http://user@localhost','http://localhost/path','http://localhost?token=x']) expect(() => parseOptions(['--agent','codex','--url',url])).toThrow();
   expect(() => parseOptions(['--agent','generic','--with-skill'])).toThrow();

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1 — 2026-10-21
+
+- Made installer path expectations portable across macOS and Windows.
+- Included the repository license in desktop, MCP and web distributions.
+
 ## 0.2.0 — 2026-10-21
 
 - Renamed the app, desktop packages, environment variables, downloads and project documentation to iconic.

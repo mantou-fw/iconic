@@ -8,6 +8,7 @@ const name = `iconic-web-${version}`;
 const staging = path.join(root, '.desktop', name);
 await rm(staging, { recursive: true, force: true });
 await cp(path.join(root, '.output'), staging, { recursive: true, dereference: true });
+await cp(path.join(root, 'LICENSE'), path.join(staging, 'LICENSE'));
 await writeFile(path.join(staging, 'package.json'), JSON.stringify({ name: 'iconic-web', version, private: true, type: 'module', scripts: { start: 'node server/index.mjs' }, engines: { node: '>=22.20.0' } }, null, 2) + '\n');
 await writeFile(path.join(staging, 'README.md'), '# iconic web server\n\nRequires Node.js 22.20+. No npm install is needed.\n\nRun from this folder:\n\n```sh\nNITRO_HOST=127.0.0.1 NITRO_PORT=4321 npm start\n```\n\nOn PowerShell, set `$env:NITRO_HOST="127.0.0.1"` and `$env:NITRO_PORT="4321"`, then run `npm start`.\n\nOpen http://localhost:4321. Keep the server local; its MCP endpoint controls the active drawing. Use the menu to select English, 繁體中文 or 日本語, and open the AI guide for the agent pack.\n');
 const files = {};

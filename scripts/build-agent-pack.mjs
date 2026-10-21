@@ -17,6 +17,7 @@ export async function buildAgentPack() {
   await Promise.all([
     bundle('mcp/server.mjs','mcp/server.mjs'),
     bundle('scripts/mcp-check.mjs','scripts/mcp-check.mjs'),
+    cp(path.join(root,'LICENSE'),path.join(output,'LICENSE')),
     cp(path.join(root,'scripts/setup-agent.mjs'),path.join(output,'scripts/setup-agent.mjs')),
     cp(path.join(root,'.agents/skills/av-schematic'),path.join(output,'skills/av-schematic'),{recursive:true}),
   ]);
