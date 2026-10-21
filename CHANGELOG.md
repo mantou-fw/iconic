@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.2 — 2026-10-21
+
+- Removed the retired desktop sources, compiled caches, sidecar binary and obsolete runtime declarations.
+- Replaced stale agent instructions with the Node.js / npm / Electron workflow.
+- Corrected repository ownership links and commit attribution.
+
 ## 0.2.1 — 2026-10-21
 
 - Made installer path expectations portable across macOS and Windows.

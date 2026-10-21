@@ -12,11 +12,11 @@ Download from [GitHub Releases](https://github.com/mantou-fw/iconic/releases/lat
 
 | File | Use |
 | --- | --- |
-| `iconic-0.2.1-arm64.dmg` | macOS Apple Silicon: open the DMG and drag iconic to Applications |
-| `iconic-0.2.1-x64.dmg` | macOS Intel: open the DMG and drag iconic to Applications |
-| `iconic-0.2.1-x64-Setup.exe` | Windows x64: run the installer |
-| `iconic-web-0.2.1.zip` | Portable web server; Node.js 22.20+ required |
-| `iconic-agent-pack-0.2.1.zip` | MCP server, skill and installer for an AI client |
+| `iconic-0.2.2-arm64.dmg` | macOS Apple Silicon: open the DMG and drag iconic to Applications |
+| `iconic-0.2.2-x64.dmg` | macOS Intel: open the DMG and drag iconic to Applications |
+| `iconic-0.2.2-x64-Setup.exe` | Windows x64: run the installer |
+| `iconic-web-0.2.2.zip` | Portable web server; Node.js 22.20+ required |
+| `iconic-agent-pack-0.2.2.zip` | MCP server, skill and installer for an AI client |
 | `SHA256SUMS.txt` | SHA-256 checksums for the release downloads |
 
 The desktop app bundles its Node runtime. **Node.js is only required separately for the web server or MCP agent pack.** The current installers are unsigned/ad-hoc signed and macOS is not notarized. If macOS blocks opening the downloaded app, review it in System Settings → Privacy & Security → Open Anyway.
@@ -143,7 +143,7 @@ Artifacts are written under `release/`. `npm run build` and desktop builds also 
 The [release workflow](.github/workflows/release.yml) tests and builds on native macOS and Windows runners. Pushing a `v*` tag publishes DMGs, EXE, agent pack, web archive and SHA-256 checksums. Manual workflow dispatch builds downloadable Actions artifacts without creating a release. Native Windows builds include executable icon metadata; cross builds from macOS can create an installer but skip PE resource editing without Windows tools. Configure signing/notarization separately before distributing signed builds.
 
 ```sh
-git tag v0.2.1
+git tag v0.2.2
 git push origin main --tags
 ```
 
@@ -164,6 +164,5 @@ AI client → Node MCP stdio (mcp/server.mjs)
 - `src/lib/i18n.ts`, `src/locales/`: language preference and translation catalogs. Add each translation key to all three JSON files; user-authored drawing content is never translated.
 - `desktop/`: isolated Electron renderer and local server lifecycle. Node integration is disabled, context isolation and sandboxing stay enabled.
 - `.agents/skills/av-schematic/`: portable canonical skill, with relative setup and tool references.
-- `src-tauri/`: historical rollback material, excluded from the active desktop build.
 
 The editor includes AV devices, zones, racks, title blocks, text, memos, shapes, images, pen strokes, cable routing, legends, 3D placement and project/image/PDF/HTML/XLSX exports. See the [canvas guide](doc/canvas-guide.md) and [changelog](CHANGELOG.md).

@@ -30,7 +30,7 @@ Batch operations await each command's acknowledgement before proceeding. A comma
 
 ## Transport and scope
 
-The MCP server speaks standard stdio to the agent. It uses Node fetch to POST commands to the app's TanStack Start `/api/canvas` server route. The renderer long-polls the same route and returns an ID-correlated response after React commits. There is no Bun runtime or separate WebSocket server.
+The MCP server speaks standard stdio to the agent. It uses Node fetch to POST commands to the app's TanStack Start `/api/canvas` server route. The renderer long-polls the same route and returns an ID-correlated response after React commits. The app and MCP server both run on Node.js.
 
 The route accepts JSON requests only on loopback Host names and rejects foreign browser Origins and cross-site requests. It has no remote access/authentication service: local processes can control the drawing, as expected for a local MCP bridge. Do not expose the server through a public proxy.
 

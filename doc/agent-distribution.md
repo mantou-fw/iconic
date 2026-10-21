@@ -33,8 +33,8 @@ No shell is used to launch client commands. Windows npm `.cmd` shims are resolve
 Local ZIP and local-source skill installation work before publishing. To enable GitHub installation, publish a matching repository version first and verify:
 
 ```sh
-npx skills@1.7.4 add faithli-dev/iconic --list
-npx skills@1.7.4 add faithli-dev/iconic --skill av-schematic -a codex -a claude-code -g --copy
+npx skills@1.7.4 add mantou-fw/iconic --list
+npx skills@1.7.4 add mantou-fw/iconic --skill av-schematic -a codex -a claude-code -g --copy
 ```
 
 Do not advertise the remote command as verified until that publication exists. Upload the generated ZIP beside DMG/EXE releases when publishing a release. This task does not publish a marketplace plugin or npm package; separate Codex/Claude plugin manifests can reuse the same server/skill later.

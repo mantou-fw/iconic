@@ -1,4 +1,4 @@
-iconic 0.2.1 introduces the new name and a signal-path icon for the AV schematic, equipment rack and 3D room editor.
+iconic 0.2.2 removes the retired desktop sources and obsolete runtime instructions. The project uses Node.js, npm, TanStack Start and Electron throughout.
 
 - English, Traditional Chinese and Japanese interface, with a saved language preference under iconic → Language.
 - Toolbar descriptions and shortcut hints appear on hover and keyboard focus.
@@ -8,11 +8,11 @@ iconic 0.2.1 introduces the new name and a signal-path icon for the AV schematic
 
 Downloads:
 
-- `iconic-0.2.1-arm64.dmg`: macOS Apple Silicon.
-- `iconic-0.2.1-x64.dmg`: macOS Intel.
-- `iconic-0.2.1-x64-Setup.exe`: Windows x64 installer.
-- `iconic-agent-pack-0.2.1.zip`: MCP + skill + installer; requires Node.js 22.20+ and npm.
-- `iconic-web-0.2.1.zip`: portable Node.js web server; requires Node.js 22.20+.
+- `iconic-0.2.2-arm64.dmg`: macOS Apple Silicon.
+- `iconic-0.2.2-x64.dmg`: macOS Intel.
+- `iconic-0.2.2-x64-Setup.exe`: Windows x64 installer.
+- `iconic-agent-pack-0.2.2.zip`: MCP + skill + installer; requires Node.js 22.20+ and npm.
+- `iconic-web-0.2.2.zip`: portable Node.js web server; requires Node.js 22.20+.
 - `SHA256SUMS.txt`: download checksums.
 
 Desktop installers are unsigned / ad-hoc signed and not notarized. Native signing credentials are not configured. See README for installation, development and MCP/skill setup.

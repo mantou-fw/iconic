@@ -36,7 +36,6 @@
     "dist",
     ".output",
     "node_modules",
-    "src-tauri",
     "scripts"
   ]
 }
