@@ -36,8 +36,8 @@ jobs:
         with:
           name: iconic-${{ matrix.name }}
           path: |
-            release/**/*.dmg
-            release/**/*.exe
+            release/darwin-*/*.dmg
+            release/win32-*/*-Setup.exe
             release/agent-pack/*.zip
             release/web/*.zip
           if-no-files-found: error
@@ -57,7 +57,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          find artifacts -type f \( -name '*.dmg' -o -name '*.exe' -o -name '*.zip' \) -exec cp {} artifacts/ \;
+          find artifacts -type f \( -name '*.dmg' -o -name '*-Setup.exe' -o -name '*.zip' \) -exec cp {} artifacts/ \;
           cd artifacts
           sha256sum ./*.dmg ./*.exe ./*.zip > SHA256SUMS.txt
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
