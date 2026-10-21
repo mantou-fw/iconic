@@ -1,12 +1,14 @@
 # iconic
 
+[English](README.md) | [繁體中文](README.zh-Hant.md) | [日本語](README.ja.md)
+
 <img src="public/icon.svg" width="88" alt="iconic icon" />
 
 AV signal-flow diagrams, equipment racks and 3D room layouts. Built with **TanStack Start, React 19 and Node.js**, packaged with **Electron** for macOS and Windows.
 
-**English · 繁體中文 · 日本語** — choose **iconic → Language**. The language preference is saved locally. Hover or focus toolbar buttons to see descriptions and keyboard shortcuts.
+**English, Traditional Chinese and Japanese** — choose **iconic → Language**. The language preference is saved locally. Hover or focus toolbar buttons to see descriptions and keyboard shortcuts.
 
-## Download and install / 下載安裝 / ダウンロード
+## Download and install
 
 Download from [GitHub Releases](https://github.com/mantou-fw/iconic/releases/latest):
 
@@ -20,10 +22,6 @@ Download from [GitHub Releases](https://github.com/mantou-fw/iconic/releases/lat
 | `SHA256SUMS.txt` | SHA-256 checksums for the release downloads |
 
 The desktop app bundles its Node runtime. **Node.js is only required separately for the web server or MCP agent pack.** The current installers are unsigned/ad-hoc signed and macOS is not notarized. If macOS blocks opening the downloaded app, review it in System Settings → Privacy & Security → Open Anyway.
-
-macOS：將 app 拖至「應用程式」。Windows：執行安裝程式。開啟後在 **iconic → Language → 繁體中文** 切換語言。
-
-macOS はアプリケーションフォルダーへドラッグ、Windows はインストーラーを実行します。起動後、**iconic → Language → 日本語** を選択できます。
 
 For the portable web archive, extract it and run inside its folder:
 
@@ -41,10 +39,10 @@ npm start
 
 Open [localhost:4321](http://localhost:4321). Keep the control server on loopback.
 
-## Install MCP and the skill / 安裝 MCP 與 Skill / MCP・スキルの導入
+## Install MCP and the skill
 
 1. Open iconic and keep a drawing open.
-2. Choose **iconic → AI guide** (繁體中文：**AI 使用說明**；日本語：**AI ガイド**).
+2. Choose **iconic → AI guide**.
 3. Select Codex, Claude Code or another MCP client and download the **Agent pack**. You can also download it from Releases.
 4. Extract the ZIP to a permanent folder. Install Node.js **22.20+** and npm. The MCP dependencies are bundled; no `npm install` is needed in the pack.
 5. Open a terminal in the extracted `iconic-agent-pack` folder and run the appropriate command:
@@ -103,10 +101,6 @@ Generic MCP configuration (use your actual absolute path):
 
 Ask Codex: **“Use $av-schematic. Read the current canvas, then add a meeting-room AV system while preserving existing content.”**
 
-繁體中文：「使用 av-schematic，先讀取現有畫布，再加入一套會議室 AV 系統，保留原有內容。」
-
-日本語：「av-schematic を使い、現在のキャンバスを読み取ってから、既存の内容を残して会議室の AV システムを追加してください。」
-
 The MCP server exposes 15 tools for devices, zones, cables, racks, layouts and 3D rooms. Read the canvas before editing; clear or delete only when requested. JSON and PNG/SVG/PDF/HTML/XLSX exports are manual app features. See [MCP setup](doc/mcp-integration.md), [agent distribution](doc/agent-distribution.md) and the [skill](.agents/skills/av-schematic/SKILL.md).
 
 ## Development
@@ -140,11 +134,13 @@ npm run icons:build              # Render SVG to PNG/ICO; also ICNS on macOS
 
 Artifacts are written under `release/`. `npm run build` and desktop builds also refresh the in-app `/downloads/iconic-agent-pack.zip` download.
 
-The [release workflow](.github/workflows/release.yml) tests and builds on native macOS and Windows runners. Pushing a `v*` tag publishes DMGs, EXE, agent pack, web archive and SHA-256 checksums. Manual workflow dispatch builds downloadable Actions artifacts without creating a release. Native Windows builds include executable icon metadata; cross builds from macOS can create an installer but skip PE resource editing without Windows tools. Configure signing/notarization separately before distributing signed builds.
+The [release workflow](.github/workflows/release.yml) tests and builds on native macOS and Windows runners. Pushing a `v*` tag publishes DMGs, EXE, agent pack, web archive and SHA-256 checksums. Manual workflow dispatch on `main` builds downloadable Actions artifacts without creating a release. Native Windows builds include executable icon metadata; cross builds from macOS can create an installer but skip PE resource editing without Windows tools. Configure signing/notarization separately before distributing signed builds.
+
+For a new release, update the package versions first, then use a new matching tag (replace `X.Y.Z` below):
 
 ```sh
-git tag v0.2.2
-git push origin main --tags
+git tag vX.Y.Z
+git push origin main refs/tags/vX.Y.Z
 ```
 
 ## Architecture

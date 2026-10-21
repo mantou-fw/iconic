@@ -6,3 +6,5 @@
 - [Command protocol](bridge-protocol.md): local TanStack Start command transport.
 
 Use Node.js 22.20+ and npm. `npm run dev` starts TanStack Start; `npm run desktop:dev` starts Electron. See the [project README](../README.md) for builds.
+
+Project guides: [English](../README.md) · [繁體中文](../README.zh-Hant.md) · [日本語](../README.ja.md).
