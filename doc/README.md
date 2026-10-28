@@ -1,6 +1,7 @@
 # iconic docs
 
 - [Canvas guide](canvas-guide.md): drawing, 3D room and exports.
+- [Project storage](project-storage.md): per-project Couchbase Lite databases, migration, autosave and version history.
 - [MCP integration](mcp-integration.md): connect an external AI agent.
 - [Agent distribution](agent-distribution.md): standalone MCP pack and Vercel skills installation.
 - [Command protocol](bridge-protocol.md): local TanStack Start command transport.

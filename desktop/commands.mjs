@@ -1,3 +1,5 @@
+import { productSchema, roomImportSchema } from '../shared/ai-imports.mjs';
+
 const text = value => typeof value === 'string' && value.length <= 20000;
 const number = value => typeof value === 'number' && Number.isFinite(value) && Math.abs(value) <= 1000000;
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -15,6 +17,8 @@ export function validateActions(actions) {
     if (valid) {
       valid = optional(cmd.position, point);
       switch (cmd.type) {
+        case 'import_product': productSchema.parse(cmd); break;
+        case 'import_room_layout': roomImportSchema.parse(cmd); break;
         case 'get_state': case 'get_room': case 'clear': case 'clear_room': case 'layout': break;
         case 'add_device': valid &&= stringFields(cmd, ['tag','name','manufacturer','model','zone']) && optional(cmd.inputs,ports) && optional(cmd.outputs,ports); break;
         case 'add_zone': valid &&= text(cmd.name) && optional(cmd.color,text) && ['width','height'].every(key => optional(cmd[key],value => number(value) && value > 0)); break;

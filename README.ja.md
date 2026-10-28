@@ -14,11 +14,11 @@ AV 信号系統図、機器ラック、3D ルームレイアウトを作成す�
 
 | ファイル | 用途 |
 | --- | --- |
-| `iconic-0.2.2-arm64.dmg` | macOS Apple Silicon：DMG を開き、iconic をアプリケーションフォルダーにドラッグ |
-| `iconic-0.2.2-x64.dmg` | macOS Intel：DMG を開き、iconic をアプリケーションフォルダーにドラッグ |
-| `iconic-0.2.2-x64-Setup.exe` | Windows x64：インストーラーを実行 |
-| `iconic-web-0.2.2.zip` | ポータブル Web サーバー。Node.js 22.20 以降が必要 |
-| `iconic-agent-pack-0.2.2.zip` | AI クライアント用の MCP サーバー、スキル、インストーラー |
+| `iconic-0.3.0-arm64.dmg` | macOS Apple Silicon：DMG を開き、iconic をアプリケーションフォルダーにドラッグ |
+| `iconic-0.3.0-x64.dmg` | macOS Intel：DMG を開き、iconic をアプリケーションフォルダーにドラッグ |
+| `iconic-0.3.0-x64-Setup.exe` | Windows x64：インストーラーを実行 |
+| `iconic-web-0.3.0.zip` | ポータブル Web サーバー。Node.js 22.20 以降が必要 |
+| `iconic-agent-pack-0.3.0.zip` | AI クライアント用の MCP サーバー、スキル、インストーラー |
 | `SHA256SUMS.txt` | ダウンロードファイルの SHA-256 チェックサム |
 
 デスクトップ版には Node ランタイムが同梱されています。**Node.js の別途インストールが必要なのは、Web サーバーまたは MCP エージェントパックを使用する場合です。** 現在のインストーラーは未署名、またはアドホック署名で、macOS の公証は行っていません。macOS によって起動がブロックされた場合は、「システム設定 → プライバシーとセキュリティ → このまま開く」で確認できます。
@@ -101,7 +101,15 @@ codex mcp add av-schematic -- node /absolute/path/to/iconic/mcp/server.mjs
 
 Codex への依頼例：**「$av-schematic を使い、現在のキャンバスを読み取ってから、既存の内容を残して会議室の AV システムを追加してください。」**
 
-MCP サーバーには、機器、ゾーン、ケーブル、ラック、レイアウト、3D ルーム用の 15 個のツールがあります。編集前にキャンバスを読み取り、削除・消去は明示的な指示がある場合のみ行います。JSON と PNG／SVG／PDF／HTML／XLSX の出力は、アプリで手動実行します。[MCP 設定](doc/mcp-integration.md)、[エージェントの配布](doc/agent-distribution.md)、[スキル](.agents/skills/av-schematic/SKILL.md)も参照してください。
+MCP サーバーには、機器、ゾーン、ケーブル、ラック、レイアウト、3D ルーム用の 17 個のツールがあります。編集前にキャンバスを読み取り、削除・消去は明示的な指示がある場合のみ行います。JSON と PNG／SVG／PDF／HTML／XLSX の出力は、アプリで手動実行します。[MCP 設定](doc/mcp-integration.md)、[エージェントの配布](doc/agent-distribution.md)、[スキル](.agents/skills/av-schematic/SKILL.md)も参照してください。
+
+正確な製品型番やデータシートを AI に渡すと、`import_product` で確認済みポートと出典を含む機器ノードを作成できます。画像を認識できる AI に部屋の写真や平面図を渡すと、`import_room_layout` で 3D レイアウトを作成できます。既知の寸法を指定するか、推定と仮定を明記して作成します。調査と画像の解釈は AI クライアントが行います。既存内容は標準で保持され、JSON プロジェクトには部屋、出典、縮尺の仮定も保存されます。[インポート手順](.agents/skills/av-schematic/references/imports.md)を参照してください。
+
+## プロジェクトとバージョン履歴
+
+**iconic → プロジェクトとバージョン**でプロジェクトを作成・切り替えできます。各プロジェクトは独立した Couchbase Lite JavaScript データベースを持ち、編集内容はローカルに自動保存されます。バージョン名を入力すると完全なスナップショットを保存できます。復元時は現在の内容をバックアップし、新しいバージョンを作成します。図面、画像、接続、3D ルーム、設定、表示位置を含みます。
+
+初回起動時に既存の IndexedDB 図面を「既存の図面」プロジェクトへコピーし、元のデータベースを保持します。JSON ファイルを開くと別のプロジェクトを作成します。JSON 出力形式の互換性は維持され、履歴はローカルデータベースに残ります。保存先はブラウザー／Electron のプロファイルとオリジンごとに分かれ、クラウド同期は設定されません。公式 JavaScript SDK は IndexedDB を使用し、Couchbase のライセンスで提供されます。ビルドには `licenses/couchbase-lite.txt` が含まれます。[保存方式の詳細](doc/project-storage.md)を参照してください。
 
 ## 開発
 

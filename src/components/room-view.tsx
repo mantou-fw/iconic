@@ -1,3 +1,5 @@
+import { ImportEvidence } from "@/components/import-evidence";
+
 import { useT } from "@/lib/i18n";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
@@ -848,6 +850,9 @@ export function RoomView({
           {t("Room contents")}{" "}
         </div>
         <div className="overflow-y-auto p-1">
+          {room.imports?.map(entry => (
+            <ImportEvidence key={entry.importId} provenance={entry.provenance} estimated={entry.dimensionBasis === 'estimated'} />
+          ))}
           {items.length === 0 && (
             <p className="px-2 py-3 text-[11px] leading-snug text-muted-foreground">
               {" "}

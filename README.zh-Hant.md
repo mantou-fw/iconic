@@ -14,11 +14,11 @@
 
 | 檔案 | 用途 |
 | --- | --- |
-| `iconic-0.2.2-arm64.dmg` | macOS Apple Silicon：開啟 DMG，將 iconic 拖至「應用程式」 |
-| `iconic-0.2.2-x64.dmg` | macOS Intel：開啟 DMG，將 iconic 拖至「應用程式」 |
-| `iconic-0.2.2-x64-Setup.exe` | Windows x64：執行安裝程式 |
-| `iconic-web-0.2.2.zip` | 可攜式網頁伺服器，需要 Node.js 22.20 以上版本 |
-| `iconic-agent-pack-0.2.2.zip` | 提供 AI 用戶端使用的 MCP 伺服器、Skill 與安裝器 |
+| `iconic-0.3.0-arm64.dmg` | macOS Apple Silicon：開啟 DMG，將 iconic 拖至「應用程式」 |
+| `iconic-0.3.0-x64.dmg` | macOS Intel：開啟 DMG，將 iconic 拖至「應用程式」 |
+| `iconic-0.3.0-x64-Setup.exe` | Windows x64：執行安裝程式 |
+| `iconic-web-0.3.0.zip` | 可攜式網頁伺服器，需要 Node.js 22.20 以上版本 |
+| `iconic-agent-pack-0.3.0.zip` | 提供 AI 用戶端使用的 MCP 伺服器、Skill 與安裝器 |
 | `SHA256SUMS.txt` | 下載檔案的 SHA-256 校驗值 |
 
 桌面版已內含 Node 執行環境。**只有網頁伺服器或 MCP Agent pack 需要另外安裝 Node.js。** 目前安裝檔未正式簽署，macOS 版本使用臨時簽署，尚未完成公證。如果 macOS 阻擋開啟下載的 app，可在「系統設定 → 隱私權與安全性 → 強制打開」檢視並允許開啟。
@@ -101,7 +101,15 @@ codex mcp add av-schematic -- node /absolute/path/to/iconic/mcp/server.mjs
 
 向 Codex 提出要求：**「使用 $av-schematic，先讀取現有畫布，再加入一套會議室 AV 系統，保留原有內容。」**
 
-MCP 伺服器提供 15 個工具，用於設備、分區、接線、機櫃、自動排版及 3D 房間。編輯前先讀取畫布，只有在明確要求時才清空或刪除內容。JSON 及 PNG／SVG／PDF／HTML／XLSX 匯出由 app 手動操作。詳見 [MCP 設定](doc/mcp-integration.md)、[Agent 發佈說明](doc/agent-distribution.md)及 [Skill](.agents/skills/av-schematic/SKILL.md)。
+MCP 伺服器提供 17 個工具，用於設備、分區、接線、機櫃、自動排版及 3D 房間。編輯前先讀取畫布，只有在明確要求時才清空或刪除內容。JSON 及 PNG／SVG／PDF／HTML／XLSX 匯出由 app 手動操作。詳見 [MCP 設定](doc/mcp-integration.md)、[Agent 發佈說明](doc/agent-distribution.md)及 [Skill](.agents/skills/av-schematic/SKILL.md)。
+
+將完整產品型號或 datasheet 交給 AI，即可透過 `import_product` 建立含已確認連接埠及來源的設備節點。將房間照片或平面圖交給支援圖片辨識的 AI，即可透過 `import_room_layout` 產生 3D 佈局；可附上已知尺寸，否則會明確標示估算及假設。查閱資料及圖片辨識由 AI 用戶端負責。預設保留現有內容，JSON 專案會儲存房間、來源及比例假設。詳見[匯入流程](.agents/skills/av-schematic/references/imports.md)。
+
+## 專案與版本紀錄
+
+選擇 **iconic → 專案與版本**，即可新增或切換專案。每個專案使用獨立的 Couchbase Lite JavaScript 資料庫，編輯時自動儲存至本機。輸入版本名稱即可保留完整快照；還原時會先備份目前內容，再建立新版本。快照包含圖紙、圖片、接線、3D 房間、設定及視角。
+
+首次啟動會將舊 IndexedDB 圖紙複製成「原有圖紙」專案，保留原本資料庫。開啟 JSON 檔案會建立獨立專案；JSON 匯出格式維持相容，版本紀錄留在本機資料庫。儲存空間依瀏覽器／Electron 使用者設定及來源位址區分，未設定雲端同步。官方 JavaScript SDK 底層使用 IndexedDB，依 Couchbase 授權條款提供；建置版本保留 `licenses/couchbase-lite.txt`。詳見[儲存架構](doc/project-storage.md)。
 
 ## 開發
 

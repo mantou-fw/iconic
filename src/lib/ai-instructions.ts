@@ -27,7 +27,9 @@ ${t("prompt.after")}
 ${t("prompt.skill")}
 npx skills@1.7.4 add . --skill av-schematic -a codex -a claude-code -g --copy
 
-MCP (15): list_devices, add_zone, add_device, add_note, connect_devices, delete_device, auto_layout, add_rack, get_room, set_room, add_room_item, build_system, build_room, clear_canvas, clear_room
+MCP (17): list_devices, add_zone, add_device, import_product, add_note, connect_devices, delete_device, auto_layout, add_rack, get_room, set_room, add_room_item, import_room_layout, build_system, build_room, clear_canvas, clear_room
+
+${t("prompt.imports")}
 
 ${t("prompt.rules")}
 

@@ -3,6 +3,7 @@ import { validateActions } from "../../desktop/commands.mjs";
 
 import type { SignalType } from "./signal-types";
 import type { ItemKind, MountKind } from "./room";
+import type { ProductImport, RoomImport } from "./ai-imports";
 
 export type AIStatus = "off" | "connecting" | "live";
 
@@ -14,6 +15,8 @@ export type PortSpec = {
 
 /** Commands an agent may send to the canvas. */
 export type AICommand =
+  | ({ type: "import_product" } & ProductImport)
+  | ({ type: "import_room_layout" } & RoomImport)
   | { type: "get_state" }
   | { type: "clear" }
   | {

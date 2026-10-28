@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0 — 2026-10-28
+
+- Added a separate Couchbase Lite JavaScript database for each project, a project switcher, autosave status and complete named versions.
+- Restoring a version retains a backup of the current work and creates a new revision atomically. Concurrent editors cannot silently overwrite one another.
+- Copy the existing IndexedDB drawing into a project once, preserving the original database. JSON imports create separate projects; room state and viewport are included in snapshots and exports.
+- Added model/datasheet device imports and image-derived room imports through MCP, with source evidence and estimated dimensions.
+
 ## 0.2.2 — 2026-10-21
 
 - Removed the retired desktop sources, compiled caches, sidecar binary and obsolete runtime declarations.

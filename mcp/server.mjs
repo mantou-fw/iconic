@@ -5,6 +5,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 
 import { call } from "./transport.mjs";
+import { registerImportTools } from "./import-tools.mjs";
 const push = call;
 
 const text = (value         ) => ({
@@ -40,6 +41,7 @@ const position = z
   .describe("Canvas position; omit to auto-place");
 
 const server = new McpServer({ name: "av-schematic", version: "1.0.0" });
+registerImportTools(server, call);
 
 server.registerTool(
   "list_devices",
@@ -279,13 +281,14 @@ server.registerTool(
       width: z.number().optional(),
       depth: z.number().optional(),
       height: z.number().optional(),
-      clearFirst: z.boolean().default(true),
+      clearFirst: z.boolean().default(false).describe("Clear existing items only when explicitly requested"),
       items: z.array(
         z.object({
           kind: itemKind,
           label: z.string(),
           tag: z.string().optional(),
           position: xyz,
+          size: z.object({ w: z.number().positive().optional(), h: z.number().positive().optional(), d: z.number().positive().optional() }).optional(),
           rotation: z.number().optional(),
           mount: z.enum(["wall", "ceiling", "floor", "table", "rack"]).optional(),
           color: z.string().optional(),

@@ -142,6 +142,8 @@ export function AIGuide({ onClose }: { onClose: () => void }) {
         >
           <h3 id="ai-features-title">{t("What can AI do?")}</h3>
           <ul>
+            <li>{t("Give your AI a product model or datasheet to create a device with ports and source references.")}</li>
+            <li>{t("Attach room photos or a floor plan to your AI to generate a 3D layout. Unmeasured dimensions are marked as estimates.")}</li>
             <li>
               {t(
                 "Read the canvas, create AV devices and zones, connect ports, and arrange the layout.",
@@ -160,7 +162,7 @@ export function AIGuide({ onClose }: { onClose: () => void }) {
           </ul>
           <p>
             {t(
-              "Use the app to export JSON projects and PNG / SVG / PDF / HTML / XLSX files. Exports are outside the 15 MCP tools.",
+              "Use the app to export JSON projects and PNG / SVG / PDF / HTML / XLSX files. Exports are outside the MCP tools.",
             )}
           </p>
         </section>

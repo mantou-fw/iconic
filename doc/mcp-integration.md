@@ -22,11 +22,27 @@ Verify with `npm run mcp:check` while the app is open. It lists tools and reads 
 
 ## Tools
 
-The canonical schemas and descriptions live in `mcp/server.mjs`. Tools cover listing devices, creating zones/devices/text/memos, connecting ports, deleting devices, layout, racks, room state/items, clearing and batched system/room construction.
+The 17 tools are registered in `mcp/server.mjs` and `mcp/import-tools.mjs`; import schemas shared by the server and renderer live in `shared/ai-imports.mjs`. Tools cover listing devices, creating zones/devices/text/memos, product imports, connecting ports, deleting devices, layout, racks, room state/items, photo-derived room imports, clearing and batched system/room construction.
 
 Read the current drawing before editing. Preserve existing work unless the user requests removal. Create zones before devices and devices before cables. Use exact device tags and port labels; reuse tags across schematic, rack equipment and room items. Room measurements use metres.
 
 Batch operations await each command's acknowledgement before proceeding. A command failure stops the remaining batch; already-applied changes remain. Read the drawing after a failed/expired operation before retrying, so you do not create duplicates.
+
+## Model or datasheet → device node
+
+Send an exact model, an official product URL or a datasheet attachment to your AI client. The AI researches/reads the source, extracts physical ports, and calls `import_product`. No additional model credentials are needed by iconic. The MCP server itself does not download files, parse PDFs or perform vision: use a client with the appropriate browsing/document/image capabilities.
+
+The import requires a unique tag, name, manufacturer (may be empty if unknown), exact model, explicit inputs/outputs arrays and provenance. Each port has a unique label per direction, connector and signal class. Unknown ports stay empty; channel counts must not be mistaken for physical sockets. Optional dimensions use metres; rackUnits uses rack units. Provenance contains actual source labels/URLs, short excerpts, confidence and assumptions. It persists on the node, appears in its expandable source panel and is returned by `list_devices`. Existing tags are rejected; after a timeout read state before retrying.
+
+## Room image → layout
+
+Attach room photos or a floor plan to your vision-capable AI client. Optionally supply width, depth and ceiling height. The AI identifies visible items and calls `import_room_layout` with room dimensions, complete item positions/sizes, mount types, source evidence and `dimensionBasis` (`measured` or `estimated`). Single-photo scale is an estimate unless independently measured; the schema requires assumptions for estimated dimensions.
+
+The origin is the near-left floor corner, x right, y up, z back; positions describe item centres in metres and rotation is degrees about y. The shared schema checks finite positive sizes and rotated footprints against the room, with a 0.1 m tolerance for wall-mounted objects. This is a rectangular approximation, not a surveyed reconstruction or collision solver. Explain occluded/unsupported geometry in assumptions. Schematic tags must exist and cannot occur twice in a room.
+
+Imports default to append. An occupied room keeps its dimensions in append mode. Use replace only for an explicit request to replace its contents. A single command validates and prepares the entire room before changing state, avoiding partial imports. Reuse the same importId on retries: the renderer recognizes an applied ID and returns current state without duplicates. Sources and scale assumptions appear in the room contents panel. Room data and evidence are included in project JSON; older files without room fields still open and leave the current room intact.
+
+The MCP server also exposes the prompts `product_from_datasheet` (product reference) and `room_from_image` (image reference and optional measurements). The bundled [skill workflow](../.agents/skills/av-schematic/references/imports.md) works in clients without prompt menus. After updating the source server or replacing an installed agent pack, restart/reload the MCP client to discover the new tools. Reinstall the bundled skill if using a copied global skill.
 
 ## Transport and scope
 

@@ -11,6 +11,8 @@ import {
   type SignalType,
 } from "@/lib/signal-types";
 import { cn } from "@/lib/utils";
+import type { ProductImport } from "@/lib/ai-imports";
+import { ImportEvidence } from "@/components/import-evidence";
 
 export type DevicePort = {
   id: string;
@@ -21,6 +23,9 @@ export type DevicePort = {
 };
 
 export type AVDeviceData = {
+  provenance?: ProductImport['provenance'];
+  dimensions?: ProductImport['dimensions'];
+  rackUnits?: number;
   /** Drawing reference designator, e.g. "DSP-01". */
   tag: string;
   name: string;
@@ -308,6 +313,7 @@ function AVDeviceNodeImpl({
       </div>
 
       {/* Port field — inputs left, outputs right, per drawing convention */}
+      {data.provenance && <ImportEvidence provenance={data.provenance} />}
       <div className="grid grid-cols-2 py-0.5">
         <div className="border-r border-[var(--hairline)]">
           <div className="px-2 pt-1 pb-0.5 text-[9px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/70">

@@ -1,9 +1,13 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { StdioClientTransport, getDefaultEnvironment } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { fileURLToPath } from 'node:url';
 const client = new Client({ name: 'mcp-check', version: '1.0.0' });
 try {
-  await client.connect(new StdioClientTransport({ command: process.execPath, args: [fileURLToPath(new URL('../mcp/server.mjs', import.meta.url))] }));
+  await client.connect(new StdioClientTransport({
+    command: process.execPath,
+    args: [fileURLToPath(new URL('../mcp/server.mjs', import.meta.url))],
+    env: { ...getDefaultEnvironment(), ...(process.env.AV_CANVAS_URL ? { AV_CANVAS_URL: process.env.AV_CANVAS_URL } : {}) },
+  }));
   const { tools } = await client.listTools();
   console.log(`MCP tools (${tools.length}): ${tools.map(tool => tool.name).join(', ')}`);
   const result = await client.callTool({ name: 'list_devices', arguments: {} });

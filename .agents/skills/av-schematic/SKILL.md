@@ -1,6 +1,6 @@
 ---
 name: av-schematic
-description: Draw and edit AV signal-flow schematics, equipment racks and 3D room layouts in iconic using its MCP tools. Use when placing AV devices, zones or cables, designing a rack, or laying out a room.
+description: Draw and edit AV signal-flow schematics, equipment racks and 3D room layouts in iconic using its MCP tools. Create device nodes from product models or datasheets and room layouts from photos or floor plans. Use when placing AV devices, zones or cables, designing a rack, or laying out a room.
 ---
 
 # iconic AV canvas
@@ -19,3 +19,7 @@ If tools are unavailable or a connection fails, read [setup](references/setup.md
 - Read back the affected drawing or room after changes and report what the tools actually completed.
 
 Manual app features include project JSON and PNG/SVG/PDF/HTML/XLSX exports. The current MCP tools do not perform file exports. Never claim an export happened without an available tool or an authorized, verified app action.
+
+## Product models, datasheets and room images
+
+Use [import workflows](references/imports.md) when the user supplies a product model, datasheet, room photo or floor plan. The AI client performs research, PDF reading and vision; MCP accepts the extracted structured result. Do not ask the user to manually turn an accessible attachment into JSON. Use `import_product` or `import_room_layout` to retain evidence and assumptions. These tools do not fetch files or run a model themselves.

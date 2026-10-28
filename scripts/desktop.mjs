@@ -23,6 +23,7 @@ if (command === 'dev') {
 } else if (command === 'build') {
   await buildAgentPack();
   await run(process.execPath, ['node_modules/vite/bin/vite.js', 'build']);
+  await run(process.execPath, ['scripts/copy-dependency-notices.mjs']);
   const option = name => flags.find(value => value.startsWith(`--${name}=`))?.slice(name.length + 3);
   const platforms = (option('platform') ?? process.platform).split(',');
   const onlyDirectory = flags.includes('--dir');

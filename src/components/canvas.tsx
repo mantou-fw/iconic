@@ -20,7 +20,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
-import { db, DEFAULT_TOOL_SETTINGS, type ToolSettings } from "@/lib/db";
+import { DEFAULT_TOOL_SETTINGS, type ToolSettings } from "@/lib/db";
 import { boundsOf, pointsToPath, simplify, type Point } from "@/lib/stroke";
 import {
   DEFAULT_SIGNALS,
@@ -50,7 +50,11 @@ import {
 import { ShapeNode, makeShapeData } from "@/components/nodes/shape-node";
 import { FileMenu } from "@/components/file-menu";
 import { useAIBridge, type AICommand, type AIReply } from "@/lib/ai-bridge";
-import { parseProject, readProject, writeProject } from "@/lib/project";
+import { parseProject, type ProjectFile } from "@/lib/project";
+import { captureCanvas } from "@/lib/canvas-project";
+import type { ProjectSession } from "@/lib/project-store";
+import { prepareRoomImport } from "@/lib/ai-imports";
+import { productSchema } from "../../shared/ai-imports.mjs";
 import {
   buildWorkbook,
   downloadBlob,
@@ -196,7 +200,17 @@ function decorateEdge(edge: Edge, nodes: Node[], signals: SignalDef[]): Edge {
   };
 }
 
-function CanvasInner() {
+export type CanvasHandle = { capture: () => ProjectFile; flush: () => Promise<void> };
+type CanvasProps = {
+  session: ProjectSession;
+  initial: ProjectFile;
+  blocked: boolean;
+  onProjects: () => void;
+  onImport: (project: ProjectFile, name: string) => Promise<void>;
+  onReady: (handle: CanvasHandle | null) => void;
+};
+
+function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady }: CanvasProps) {
   const t = useT();
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -216,35 +230,20 @@ function CanvasInner() {
   const pendingImagePos = useRef<Point | null>(null);
   const strokeRef = useRef<{ screen: Point[]; flow: Point[] } | null>(null);
   const rafRef = useRef<number | null>(null);
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const settingsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const signalsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** Mirror of the node state, so persist() can sanity-check the flow store. */
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved');
+  const [saveError, setSaveError] = useState('');
+  const [viewRevision, setViewRevision] = useState(0);
+  const editGeneration = useRef(0);
+  /** Mirror of the node state, so capture() can sanity-check the flow store. */
   const nodesRef = useRef<Node[]>([]);
 
   /* ---------------------------------------------------------------- load */
 
-  const loadFromDb = useCallback(async () => {
+  const loadInitialProject = useCallback(() => {
     {
-      const [
-        dbNodes,
-        dbEdges,
-        dbDrawings,
-        viewport,
-        dbSettings,
-        dbSignals,
-        dbRoom,
-        dbItems,
-      ] = await Promise.all([
-        db.nodes.toArray(),
-        db.edges.toArray(),
-        db.drawings.toArray(),
-        db.viewport.get("viewport"),
-        db.settings.get("tools"),
-        db.legend.get("signals"),
-        db.room.get("room"),
-        db.roomItems.toArray(),
-      ]);
+      const { nodes: dbNodes, edges: dbEdges, drawings: dbDrawings, settings: dbSettings,
+        room: dbRoom, roomItems: dbItems = [], viewport } = initial;
+      const dbSignals = { items: initial.signals };
 
       setRoom(dbRoom ?? DEFAULT_ROOM);
       setRoomItems(dbItems);
@@ -315,11 +314,11 @@ function CanvasInner() {
       }
       setLoaded(true);
     }
-  }, [rf, setNodes, setEdges]);
+  }, [rf, setNodes, setEdges, initial]);
 
   useEffect(() => {
-    void loadFromDb();
-  }, [loadFromDb]);
+    loadInitialProject();
+  }, [loadInitialProject]);
 
   useEffect(() => {
     nodesRef.current = nodes;
@@ -327,117 +326,46 @@ function CanvasInner() {
 
   /* ------------------------------------------------------------- persist */
 
-  const persist = useCallback(() => {
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(async () => {
-      const current = rf.getNodes();
-      const currentEdges = rf.getEdges();
+  const capture = useCallback(() => {
+    const current = rf.getNodes();
+    if (current.length === 0 && nodesRef.current.length > 0) throw new Error('Canvas is not ready to save.');
+    return captureCanvas(current, rf.getEdges(), settings, signals, room, roomItems, rf.getViewport());
+  }, [rf, settings, signals, room, roomItems]);
 
-      // Never let an unready or unmounted store blank a drawing that still has
-      // content in React state — an overwrite here is unrecoverable.
-      if (current.length === 0 && nodesRef.current.length > 0) return;
-
-      const regular = current.filter((n) => n.type !== "drawing");
-      const strokes = current.filter((n) => n.type === "drawing");
-
-      await db.transaction(
-        "rw",
-        db.nodes,
-        db.edges,
-        db.drawings,
-        db.viewport,
-        async () => {
-          await db.nodes.clear();
-          await db.nodes.bulkPut(
-            regular.map((n) => {
-              const { autoFocus, ...data } = (n.data ?? {}) as Record<
-                string,
-                any
-              >;
-              return {
-                id: n.id,
-                type: n.type as any,
-                position: n.position,
-                data,
-                width: typeof n.width === "number" ? n.width : undefined,
-                height: typeof n.height === "number" ? n.height : undefined,
-                parentId: n.parentId,
-              };
-            }),
-          );
-
-          await db.drawings.clear();
-          await db.drawings.bulkPut(
-            strokes.map((n) => {
-              const data = n.data as any;
-              return {
-                id: n.id,
-                points: data.points.map((p: Point) => ({
-                  x: p.x + n.position.x,
-                  y: p.y + n.position.y,
-                })),
-                color: data.color,
-                strokeWidth: data.strokeWidth,
-              };
-            }),
-          );
-
-          await db.edges.clear();
-          await db.edges.bulkPut(
-            currentEdges.map((e) => ({
-              id: e.id,
-              source: e.source,
-              target: e.target,
-              sourceHandle: e.sourceHandle,
-              targetHandle: e.targetHandle,
-              label: ((e.data as any)?.label as string) || undefined,
-              midX: (e.data as any)?.midX as number | undefined,
-              midY: (e.data as any)?.midY as number | undefined,
-              direction: (e.data as any)?.direction as
-                "forward" | "backward" | "both" | undefined,
-            })),
-          );
-
-          const vp = rf.getViewport();
-          await db.viewport.put({ id: "viewport", ...vp });
-        },
-      );
-    }, 400);
-  }, [rf]);
-
-  useEffect(() => {
-    if (loaded) persist();
-  }, [nodes, edges, loaded, persist]);
+  const flush = useCallback(async () => {
+    const generation = editGeneration.current;
+    setSaveStatus('saving');
+    try {
+      await session.save(capture());
+      if (generation === editGeneration.current) setSaveStatus('saved');
+      setSaveError('');
+    } catch (error) {
+      setSaveStatus('error');
+      setSaveError(error instanceof Error ? error.message : String(error));
+      throw error;
+    }
+  }, [session, capture]);
 
   useEffect(() => {
     if (!loaded) return;
-    const t = setTimeout(async () => {
-      await db.transaction("rw", db.room, db.roomItems, async () => {
-        await db.room.put(room);
-        await db.roomItems.clear();
-        await db.roomItems.bulkPut(roomItems);
-      });
-    }, 400);
-    return () => clearTimeout(t);
-  }, [room, roomItems, loaded]);
+    onReady({ capture, flush });
+    return () => onReady(null);
+  }, [loaded, capture, flush, onReady]);
 
   useEffect(() => {
-    if (!loaded) return;
-    if (settingsTimer.current) clearTimeout(settingsTimer.current);
-    settingsTimer.current = setTimeout(
-      () => void db.settings.put(settings),
-      300,
-    );
-  }, [settings, loaded]);
+    if (!loaded || blocked) return;
+    editGeneration.current++;
+    setSaveStatus('saving');
+    const timer = setTimeout(() => void flush().catch(() => undefined), 400);
+    return () => clearTimeout(timer);
+  }, [nodes, edges, loaded, blocked, flush, viewRevision]);
 
   useEffect(() => {
-    if (!loaded) return;
-    if (signalsTimer.current) clearTimeout(signalsTimer.current);
-    signalsTimer.current = setTimeout(
-      () => void db.legend.put({ id: "signals", items: signals }),
-      300,
-    );
-  }, [signals, loaded]);
+    if (!loaded || saveStatus === 'saved') return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [loaded, saveStatus]);
 
   /**
    * Re-colours every edge when the legend changes so the drawing always
@@ -794,11 +722,6 @@ function CanvasInner() {
     if (!confirm(t("Clear the entire canvas? This cannot be undone."))) return;
     setNodes([]);
     setEdges([]);
-    await db.transaction("rw", db.nodes, db.edges, db.drawings, async () => {
-      await db.nodes.clear();
-      await db.edges.clear();
-      await db.drawings.clear();
-    });
   }, [setNodes, setEdges, t]);
 
   /* ------------------------------------------------------- file in/out */
@@ -806,14 +729,14 @@ function CanvasInner() {
   const projectInputRef = useRef<HTMLInputElement>(null);
 
   const onSaveJson = useCallback(async () => {
-    const project = await readProject();
+    const project = capture();
     downloadBlob(
-      new Blob([JSON.stringify(project, null, 2)], {
+      new Blob([JSON.stringify({ ...project, room, roomItems }, null, 2)], {
         type: "application/json",
       }),
       `av-schematic-${stamp()}.json`,
     );
-  }, []);
+  }, [capture, room, roomItems]);
 
   const onProjectFile = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -822,15 +745,14 @@ function CanvasInner() {
       if (!file) return;
       try {
         const project = parseProject(await file.text());
-        await writeProject(project);
-        await loadFromDb();
+        await onImport(project, file.name.replace(/\.json$/i, ''));
       } catch (err) {
         alert(
           err instanceof Error ? err.message : t("Could not open that file."),
         );
       }
     },
-    [loadFromDb, t],
+    [onImport, t],
   );
 
   const onExportXlsx = useCallback(async () => {
@@ -838,12 +760,12 @@ function CanvasInner() {
       nodes: dbNodes,
       edges: dbEdges,
       signals: dbSignals,
-    } = await readProject();
+    } = capture();
     downloadBlob(
       workbookBlob(buildWorkbook(dbNodes, dbEdges, dbSignals)),
       `av-schedules-${stamp()}.xlsx`,
     );
-  }, []);
+  }, [capture]);
 
   /* ------------------------------------------------------- alignment */
 
@@ -940,7 +862,10 @@ function CanvasInner() {
   /* ------------------------------------------------------- AI bridge */
 
   const runCommand = useCallback(
-    (cmd: AICommand): AIReply | void => {
+    (rawCommand: AICommand): AIReply | void => {
+      const cmd: AICommand = rawCommand.type === 'import_product'
+        ? { type: 'import_product', ...productSchema.parse(rawCommand) }
+        : rawCommand;
       const ok = (command: string, detail?: unknown): AIReply => ({
         type: "ack",
         command,
@@ -954,6 +879,9 @@ function CanvasInner() {
         message,
       });
 
+      if (!loaded || (blocked && !['get_state', 'get_room'].includes(cmd.type))) {
+        return fail(cmd.type, 'Project is loading or its version manager is open. Retry after it closes.');
+      }
       const current = rf.getNodes();
       const devices = current.filter((n) => n.type === "database");
       const dataOf = (n: Node) => n.data as unknown as AVDeviceData;
@@ -977,6 +905,9 @@ function CanvasInner() {
               name: d.name,
               manufacturer: d.manufacturer,
               model: d.model,
+              provenance: d.provenance,
+              dimensions: d.dimensions,
+              rackUnits: d.rackUnits,
               position: n.position,
               ports: (d.ports ?? []).map((p) => ({
                 label: p.label,
@@ -1018,6 +949,7 @@ function CanvasInner() {
 
         case "set_room": {
           const next: RoomSpec = {
+            ...room,
             id: "room",
             name: cmd.name ?? room.name,
             width: cmd.width ?? room.width,
@@ -1027,6 +959,15 @@ function CanvasInner() {
           setRoom(next);
           if (cmd.clearItems) setRoomItems([]);
           return ok("set_room", next);
+        }
+
+        case "import_room_layout": {
+          const next = prepareRoomImport(cmd, room, roomItems, devices.map(n => dataOf(n).tag), () => `r${nextId()}`);
+          if (!next.duplicate) {
+            setRoom(next.room);
+            setRoomItems(next.items);
+          }
+          return ok(cmd.type, { duplicate: next.duplicate, room: next.room, items: next.items });
         }
 
         case "add_room_item": {
@@ -1135,12 +1076,23 @@ function CanvasInner() {
           return ok("add_zone", { name: cmd.name });
         }
 
+        case "import_product":
         case "add_device": {
+          if (cmd.type === "import_product") {
+            if (devices.some(n => dataOf(n).tag.toLowerCase() === cmd.tag.toLowerCase())) {
+              return fail(cmd.type, `Tag "${cmd.tag}" already exists. Read list_devices before retrying or choose a unique tag.`);
+            }
+          }
           const data = makeDeviceData();
           if (cmd.tag) data.tag = cmd.tag.toUpperCase();
           if (cmd.name) data.name = cmd.name;
           data.manufacturer = cmd.manufacturer ?? "";
           data.model = cmd.model ?? "";
+          if (cmd.type === "import_product") {
+            data.provenance = cmd.provenance;
+            data.dimensions = cmd.dimensions;
+            data.rackUnits = cmd.rackUnits;
+          }
           if (cmd.inputs || cmd.outputs) {
             const build = (
               specs: typeof cmd.inputs,
@@ -1167,7 +1119,7 @@ function CanvasInner() {
               )
             : undefined;
           if (cmd.zone && !zone) {
-            return fail("add_device", `No zone named "${cmd.zone}"`);
+            return fail(cmd.type, `No zone named "${cmd.zone}"`);
           }
           setNodes((nds) =>
             parentsFirst(
@@ -1182,7 +1134,7 @@ function CanvasInner() {
               }),
             ),
           );
-          return ok("add_device", { tag: data.tag, zone: cmd.zone });
+          return ok(cmd.type, { tag: data.tag, zone: cmd.zone });
         }
 
         case "add_text":
@@ -1270,7 +1222,7 @@ function CanvasInner() {
           return fail((cmd as { type: string }).type ?? "?", "Unknown command");
       }
     },
-    [rf, setNodes, setEdges, settings, room, roomItems, signals],
+    [rf, setNodes, setEdges, settings, room, roomItems, signals, loaded, blocked],
   );
 
   const aiStatus = useAIBridge(runCommand);
@@ -1368,7 +1320,7 @@ function CanvasInner() {
     };
 
     const onKey = (e: KeyboardEvent) => {
-      if (typing(e.target)) return;
+      if (blocked || !loaded || typing(e.target)) return;
       const mod = e.metaKey || e.ctrlKey;
 
       if (mod && e.key.toLowerCase() === "z") {
@@ -1413,7 +1365,7 @@ function CanvasInner() {
     };
 
     const onKeyUp = (e: KeyboardEvent) => {
-      if (e.code !== "Space" || typing(e.target)) return;
+      if (blocked || !loaded || e.code !== "Space" || typing(e.target)) return;
       const previous = toolBeforeSpace.current;
       toolBeforeSpace.current = null;
       if (previous) setTool(previous);
@@ -1425,7 +1377,7 @@ function CanvasInner() {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [changeTool, duplicateSelection, redo, setNodes, tool, undo]);
+  }, [blocked, loaded, changeTool, duplicateSelection, redo, setNodes, tool, undo]);
 
   /* -------------------------------------------------- properties panel */
 
@@ -1514,9 +1466,9 @@ function CanvasInner() {
 
   return (
     <ThemeContext.Provider value={resolved}>
-      <div className="relative h-screen w-full">
+      <div className="relative h-screen w-full" inert={blocked || !loaded}>
         {/* Overlaid rather than swapped in: unmounting ReactFlow would empty its
-          store, and both persist() and the AI commands read from it. */}
+          store, and both capture() and the AI commands read from it. */}
         {showRoom && (
           <RoomView
             room={room}
@@ -1529,7 +1481,12 @@ function CanvasInner() {
             }
           />
         )}
+        <div className="absolute bottom-3 left-1/2 z-20 max-w-[60vw] -translate-x-1/2 rounded-lg bg-background/95 px-3 py-1.5 text-xs shadow" role={saveStatus === 'error' ? 'alert' : 'status'}>
+          <span className="font-medium">{session.entry.name}</span> · {t(saveStatus === 'saving' ? 'Saving…' : saveStatus === 'error' ? 'Save failed' : 'Saved locally')}
+          {saveStatus === 'error' && <><p>{t(saveError)}</p><button className="underline" onClick={() => void flush().catch(() => undefined)}>{t('Retry save')}</button></>}
+        </div>
         <FileMenu
+          onProjects={onProjects}
           onOpen={() => projectInputRef.current?.click()}
           onSaveJson={onSaveJson}
           onExportXlsx={onExportXlsx}
@@ -1644,7 +1601,8 @@ function CanvasInner() {
                 snapGrid={[settings.gridSize, settings.gridSize]}
                 connectionRadius={24}
                 proOptions={{ hideAttribution: true }}
-                fitView
+                fitView={!initial.viewport}
+                onMoveEnd={() => setViewRevision(value => value + 1)}
               >
                 <Background
                   variant={
@@ -1698,10 +1656,10 @@ function CanvasInner() {
   );
 }
 
-export function Canvas() {
+export function Canvas(props: CanvasProps) {
   return (
     <ReactFlowProvider>
-      <CanvasInner />
+      <CanvasInner {...props} />
     </ReactFlowProvider>
   );
 }

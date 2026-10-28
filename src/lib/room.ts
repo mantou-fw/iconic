@@ -1,3 +1,5 @@
+import type { RoomImportRecord } from './ai-imports';
+
 /**
  * A simple 3D model of the space the AV system lives in, so a device on the
  * schematic can be tied to where it is physically mounted.
@@ -36,6 +38,7 @@ export const DEVICE_KINDS: ItemKind[] = [
 export const isDeviceKind = (kind: ItemKind) => DEVICE_KINDS.includes(kind);
 
 export type RoomItem = {
+  importId?: string;
   id: string;
   kind: ItemKind;
   label: string;
@@ -53,6 +56,7 @@ export type RoomItem = {
 };
 
 export type RoomSpec = {
+  imports?: RoomImportRecord[];
   id: "room";
   name: string;
   width: number;

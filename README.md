@@ -14,11 +14,11 @@ Download from [GitHub Releases](https://github.com/mantou-fw/iconic/releases/lat
 
 | File | Use |
 | --- | --- |
-| `iconic-0.2.2-arm64.dmg` | macOS Apple Silicon: open the DMG and drag iconic to Applications |
-| `iconic-0.2.2-x64.dmg` | macOS Intel: open the DMG and drag iconic to Applications |
-| `iconic-0.2.2-x64-Setup.exe` | Windows x64: run the installer |
-| `iconic-web-0.2.2.zip` | Portable web server; Node.js 22.20+ required |
-| `iconic-agent-pack-0.2.2.zip` | MCP server, skill and installer for an AI client |
+| `iconic-0.3.0-arm64.dmg` | macOS Apple Silicon: open the DMG and drag iconic to Applications |
+| `iconic-0.3.0-x64.dmg` | macOS Intel: open the DMG and drag iconic to Applications |
+| `iconic-0.3.0-x64-Setup.exe` | Windows x64: run the installer |
+| `iconic-web-0.3.0.zip` | Portable web server; Node.js 22.20+ required |
+| `iconic-agent-pack-0.3.0.zip` | MCP server, skill and installer for an AI client |
 | `SHA256SUMS.txt` | SHA-256 checksums for the release downloads |
 
 The desktop app bundles its Node runtime. **Node.js is only required separately for the web server or MCP agent pack.** The current installers are unsigned/ad-hoc signed and macOS is not notarized. If macOS blocks opening the downloaded app, review it in System Settings → Privacy & Security → Open Anyway.
@@ -101,7 +101,15 @@ Generic MCP configuration (use your actual absolute path):
 
 Ask Codex: **“Use $av-schematic. Read the current canvas, then add a meeting-room AV system while preserving existing content.”**
 
-The MCP server exposes 15 tools for devices, zones, cables, racks, layouts and 3D rooms. Read the canvas before editing; clear or delete only when requested. JSON and PNG/SVG/PDF/HTML/XLSX exports are manual app features. See [MCP setup](doc/mcp-integration.md), [agent distribution](doc/agent-distribution.md) and the [skill](.agents/skills/av-schematic/SKILL.md).
+The MCP server exposes 17 tools for devices, zones, cables, racks, layouts and 3D rooms. Read the canvas before editing; clear or delete only when requested. JSON and PNG/SVG/PDF/HTML/XLSX exports are manual app features. See [MCP setup](doc/mcp-integration.md), [agent distribution](doc/agent-distribution.md) and the [skill](.agents/skills/av-schematic/SKILL.md).
+
+Give your AI an exact product model or datasheet to create a device with verified ports and source references (`import_product`). Attach room photos or a floor plan to a vision-capable AI to generate a 3D layout (`import_room_layout`); include known room measurements, or let it record explicit estimates. Research and image interpretation happen in your AI client. Imports preserve existing content by default, and project JSON saves the room and its source/scale assumptions. See the [import workflow](.agents/skills/av-schematic/references/imports.md).
+
+## Projects and version history
+
+Choose **iconic → Projects and versions** to create or switch projects. Each project has its own Couchbase Lite JavaScript database and saves locally as you edit. Enter a version name to preserve a complete snapshot; restoring a version first keeps a backup of your current work and then creates a new version. Drawings, images, cables, 3D rooms, settings and the viewport are included.
+
+The first launch copies the previous IndexedDB drawing into **Recovered drawing** while retaining the original database. Opening a JSON file creates a separate project. JSON exports remain compatible; version history stays in the local database. Storage belongs to the current browser/Electron profile and origin. No cloud sync is configured. The official JavaScript SDK uses IndexedDB and is distributed under the Couchbase license, retained in built distributions at `licenses/couchbase-lite.txt`. See [storage details](doc/project-storage.md).
 
 ## Development
 
