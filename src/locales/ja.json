@@ -137,7 +137,7 @@
   "floor": "床",
   "wall": "壁",
   "ceiling": "天井",
-  "Clear the entire canvas? This cannot be undone.": "キャンバス全体を消去しますか？この操作は取り消せません。",
+  "Clear the entire canvas?": "キャンバス全体を消去しますか？",
   "Could not open that file.": "ファイルを開けませんでした。",
   "Image could not be embedded.": "画像を埋め込めませんでした。",
   "Unsupported drawing object.": "未対応の図面オブジェクトです。",

@@ -137,7 +137,7 @@
   "floor": "floor",
   "wall": "wall",
   "ceiling": "ceiling",
-  "Clear the entire canvas? This cannot be undone.": "Clear the entire canvas? This cannot be undone.",
+  "Clear the entire canvas?": "Clear the entire canvas?",
   "Could not open that file.": "Could not open that file.",
   "Image could not be embedded.": "Image could not be embedded.",
   "Unsupported drawing object.": "Unsupported drawing object.",

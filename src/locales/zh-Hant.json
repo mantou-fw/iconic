@@ -137,7 +137,7 @@
   "floor": "地面",
   "wall": "牆壁",
   "ceiling": "天花",
-  "Clear the entire canvas? This cannot be undone.": "清空整個畫布？此操作無法復原。",
+  "Clear the entire canvas?": "清空整個畫布？",
   "Could not open that file.": "無法開啟檔案。",
   "Image could not be embedded.": "無法嵌入圖片。",
   "Unsupported drawing object.": "不支援的繪圖物件。",
