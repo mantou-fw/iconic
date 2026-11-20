@@ -47,7 +47,9 @@ export class ProjectSession {
       const existing = await collection.getDocument(DocID('head'));
       // A deterministic migration ID allows recovery after a catalog write failed.
       if (existing) return new ProjectSession(entry, database, existing);
-      const body: ProjectDoc = { kind: 'head', name: entry.name, createdAt: entry.createdAt, updatedAt: entry.createdAt, sequence: 1, versionNumber: 1, label: '', reason: 'initial', sourceVersion: '', payload: encode(project) };
+      const payload = encode(project);
+      parseProject(payload);
+      const body: ProjectDoc = { kind: 'head', name: entry.name, createdAt: entry.createdAt, updatedAt: entry.createdAt, sequence: 1, versionNumber: 1, label: '', reason: 'initial', sourceVersion: '', payload };
       const head = collection.createDocument(DocID('head'), body);
       const initial = collection.createDocument(DocID(crypto.randomUUID()), { ...body, kind: 'version' });
       await collection.updateMultiple({ save: [head, initial], bestEffort: false });
@@ -82,8 +84,12 @@ export class ProjectSession {
     return head;
   }
 
-  read(): Promise<ProjectFile> {
-    return this.enqueue(async () => parseProject((await this.head()).payload));
+  readRaw(): Promise<string> {
+    return this.enqueue(async () => (await this.head()).payload);
+  }
+
+  async read(): Promise<ProjectFile> {
+    return parseProject(await this.readRaw());
   }
 
   save(project: ProjectFile): Promise<void> {
@@ -91,6 +97,7 @@ export class ProjectSession {
     return this.enqueue(async () => {
       const head = await this.head();
       if (sameContent(head.payload, payload)) return;
+      parseProject(payload);
       head.payload = payload;
       head.updatedAt = new Date().toISOString();
       head.sequence++;
@@ -121,6 +128,7 @@ export class ProjectSession {
     const payload = encode(project);
     return this.enqueue(async () => {
       const head = await this.head();
+      parseProject(payload);
       const version = this.version(head, head.versionNumber + 1, payload, 'manual', label.trim());
       head.payload = payload;
       head.sequence++;
@@ -140,6 +148,7 @@ export class ProjectSession {
       if (!target || target.kind !== 'version') throw new Error('Version not found.');
       const restored = { ...parseProject(target.payload), savedAt: new Date().toISOString() };
       const payload = encode(restored);
+      parseProject(backupPayload);
       const backup = this.version(head, head.versionNumber + 1, backupPayload, 'before-restore');
       const version = this.version(head, head.versionNumber + 2, payload, 'restore', target.label, versionId);
       head.payload = payload;
@@ -200,7 +209,7 @@ export class ProjectCatalog {
   }
   async initialize(readLegacy: () => Promise<ProjectFile>, legacyName: string) {
     const state = await this.state();
-    if (!state.migrated) {
+    if (!state.migrated && !state.active) {
       const entry: ProjectEntry = { id: 'legacy-import', name: legacyName, createdAt: new Date().toISOString() };
       const session = await ProjectSession.create(entry, await readLegacy());
       try { await this.register(entry, true); return session; }

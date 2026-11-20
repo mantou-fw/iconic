@@ -142,10 +142,22 @@ let idSeq = 0;
 const nextId = () => `n${Date.now().toString(36)}${(++idSeq).toString(36)}`;
 
 /** React Flow requires a parent to appear before its children in the array. */
-const parentsFirst = (nds: Node[]) => [
-  ...nds.filter((n) => n.type === "zone"),
-  ...nds.filter((n) => n.type !== "zone"),
-];
+function parentsFirst(nodes: Node[]) {
+  const byId = new Map(nodes.map((node) => [node.id, node]));
+  const ordered: Node[] = [];
+  const visited = new Set<string>();
+  for (const node of [...nodes.filter((n) => n.type === "zone"), ...nodes.filter((n) => n.type !== "zone")]) {
+    const chain: Node[] = [];
+    let current: Node | undefined = node;
+    while (current && !visited.has(current.id)) {
+      chain.push(current);
+      visited.add(current.id);
+      current = current.parentId ? byId.get(current.parentId) : undefined;
+    }
+    while (chain.length) ordered.push(chain.pop()!);
+  }
+  return ordered;
+}
 
 /** Walks the parent chain to get a node's position in flow coordinates. */
 function absolutePosition(node: Node, all: Node[]): Point {

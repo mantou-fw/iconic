@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { afterEach, describe, expect, test, vi } from 'vitest';
-import { Collection, Database } from '@couchbase/lite-js';
+import { Collection, Database, DocID } from '@couchbase/lite-js';
 import { indexedDB, IDBKeyRange } from 'fake-indexeddb';
 import { ProjectCatalog, ProjectSession, projectDatabaseName, CATALOG_DATABASE, ProjectConflictError } from './project-store';
 import { blankProject, captureCanvas } from './canvas-project';
@@ -91,6 +91,48 @@ describe('real Couchbase Lite project storage', () => {
     expect(await session.versions()).toHaveLength(1);
     await session.restore(target.id, changed);
     expect(await session.versions()).toHaveLength(3);
+  });
+
+  test('rejects invalid new projects without registering them or switching the active ID', async () => {
+    const catalog = await setup();
+    const original = await create(catalog, 'Working drawing');
+    const bad = blankProject();
+    bad.edges.push({ id: 'invalid', source: 'gone', target: 'gone' });
+    await expect(catalog.create('Malformed import', bad)).rejects.toThrow(/edges\[0\].source/);
+    expect(await catalog.activeId()).toBe(original.entry.id);
+    expect(await catalog.list()).toEqual([original.entry]);
+    expect(await original.read()).toMatchObject({ nodes: [], edges: [] });
+  });
+
+  test('keeps unreadable active data exportable after switching away', async () => {
+    const catalog = await setup();
+    const good = await create(catalog, 'Working drawing');
+    const bad = await create(catalog, 'Unreadable drawing');
+    await bad.close();
+
+    // Simulate data accepted by an earlier app release.
+    const raw = '{ "kind":"av-schematic", "version":1, "nodes":[null], "edges":[] }';
+    const database = await Database.open<{ documents: { payload: string } }>({
+      name: projectDatabaseName(bad.entry.id), version: 1, collections: { documents: {} },
+    });
+    const docs = database.collections.documents;
+    const head = (await docs.getDocument(DocID('head')))!;
+    head.payload = raw;
+    await docs.save(head);
+    database.close();
+
+    const active = await catalog.initialize(readProject, 'Recovered');
+    sessions.push(active);
+    await expect(active.read()).rejects.toThrow(/nodes\[0\]/);
+    expect(await active.readRaw()).toBe(raw);
+    expect(await catalog.activeId()).toBe(bad.entry.id);
+    const reopenedGood = await ProjectSession.open(good.entry);
+    sessions.push(reopenedGood);
+    await reopenedGood.read();
+    await catalog.activate(good.entry.id);
+    expect(await catalog.activeId()).toBe(good.entry.id);
+    expect(await active.readRaw()).toBe(raw);
+    expect(await catalog.list()).toContainEqual(bad.entry);
   });
 
   test('copies the legacy database once without modifying it', async () => {

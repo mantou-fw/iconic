@@ -178,7 +178,7 @@ function RackNodeImpl({
           title={t("Rack units")}
           onChange={(e) =>
             updateNodeData(id, {
-              units: Math.max(1, Number(e.target.value) || 1),
+              units: Math.min(100, Math.max(1, Math.round(Number(e.target.value)) || 1)),
             })
           }
           className="nodrag nopan w-[38px] shrink-0 rounded-md border border-[var(--hairline)] bg-background/70 text-center font-mono text-[10px] outline-none"
