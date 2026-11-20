@@ -1,6 +1,6 @@
 import { t } from "./i18n";
 import { getNodesBounds, getViewportForBounds, type Node } from "@xyflow/react";
-import { toPng, toSvg } from "html-to-image";
+import { toBlob, toPng, toSvg } from "html-to-image";
 import { jsPDF } from "jspdf";
 
 import { downloadBlob, stamp } from "./schedules";
@@ -119,7 +119,7 @@ export async function exportDrawing({
 
   if (format === "svg") {
     const dataUrl = await toSvg(element, shared);
-    const xml = await (await fetch(dataUrl)).text();
+    const xml = decodeURIComponent(dataUrl.slice(dataUrl.indexOf(",") + 1));
     if (!backgroundColor) {
       downloadBlob(new Blob([xml], { type: "image/svg+xml" }), `${name}.svg`);
       return;
@@ -135,12 +135,14 @@ export async function exportDrawing({
     return;
   }
 
-  const dataUrl = await toPng(element, { ...shared, backgroundColor });
-
+  const raster = { ...shared, backgroundColor };
   if (format === "png") {
-    downloadBlob(await (await fetch(dataUrl)).blob(), `${name}.png`);
+    const blob = await toBlob(element, raster);
+    if (!blob) throw new Error(t("Export failed."));
+    downloadBlob(blob, `${name}.png`);
     return;
   }
+  const dataUrl = await toPng(element, raster);
 
   // Fit the whole drawing on one PDF page, including drawings larger than
   // the maximum PDF page size. Preserve its aspect ratio at the page limit.
