@@ -41,7 +41,9 @@ function tidy(raw: Point[]): Point[] {
     if (prev && next) {
       const flatX = Math.abs(prev.x - p.x) < 0.01 && Math.abs(p.x - next.x) < 0.01;
       const flatY = Math.abs(prev.y - p.y) < 0.01 && Math.abs(p.y - next.y) < 0.01;
-      if (flatX || flatY) continue;
+      const forwardX = (p.x - prev.x) * (next.x - p.x) >= 0;
+      const forwardY = (p.y - prev.y) * (next.y - p.y) >= 0;
+      if ((flatX && forwardY) || (flatY && forwardX)) continue;
     }
     merged.push(p);
   }
@@ -109,12 +111,15 @@ export function avoidObstacles(
   lockedX?: number,
   lockedY?: number,
   lane = 0,
+  endpoints?: { sourceId?: string; targetId?: string },
 ) {
   const base = orthogonalRoute(source, target, sourceSide, targetSide, lockedX, lockedY, lane);
   if (obstacles.length === 0) return base;
 
+  const start = { id: endpoints?.sourceId, side: sourceSide };
+  const end = { id: endpoints?.targetId, side: targetSide };
   let best = base;
-  let bestScore = crossings(base.points, obstacles);
+  let bestScore = crossings(base.points, obstacles, start, end);
   if (bestScore === 0) return base;
 
   const STEP = 12;
@@ -133,7 +138,7 @@ export function avoidObstacles(
           lockedY,
           0,
         );
-        const score = crossings(candidate.points, obstacles);
+        const score = crossings(candidate.points, obstacles, start, end);
         if (score < bestScore) {
           best = candidate;
           bestScore = score;
@@ -156,7 +161,7 @@ export function avoidObstacles(
           base.my + dir * i * STEP,
           0,
         );
-        const score = crossings(candidate.points, obstacles);
+        const score = crossings(candidate.points, obstacles, start, end);
         if (score < bestScore) {
           best = candidate;
           bestScore = score;

@@ -4,6 +4,7 @@ import { buildIcon, getIcon } from "@iconify/react";
 
 import { avoidObstacles, midpointOf, roundedPath } from "./routing";
 import { deviceIdentities, displayDeviceTag } from "./device-identity";
+import type { Rect } from "./obstacles";
 import type { RenderedEdge } from "./export-geometry";
 import { arrowMarkers, type ArrowDirection } from "./arrow-direction";
 import type { RackNodeData } from "@/components/nodes/rack-node";
@@ -92,7 +93,7 @@ type Ctx = {
   absolute: (n: Node) => { x: number; y: number };
   signals: SignalDef[];
   renderedEdges: ReadonlyMap<string, RenderedEdge>;
-  obstacles: { x: number; y: number; w: number; h: number }[];
+  obstacles: Rect[];
 };
 
 const safeColor = (value: unknown, fallback: string) =>
@@ -338,6 +339,7 @@ function fallbackEdge(
     const { points } = avoidObstacles(
       from, to, from.side, to.side, ctx.obstacles,
       finite(data.midX), finite(data.midY), finite(data.lane, 0),
+      { sourceId: source.id, targetId: target.id },
     );
     const mid = midpointOf(points);
     const x = Math.min(...points.map((point) => point.x));
@@ -568,7 +570,7 @@ export function buildViewerHtml({
   // The first title block also identifies the document in the viewer header.
   const titleNode = nodes.find((n) => n.type === "titleblock");
   const title = (titleNode?.data ?? {}) as Partial<TitleBlockData>;
-  const obstacles = devices.map((n) => ({ ...absolute(n), ...nodeSize(n) }));
+  const obstacles = devices.map((n) => ({ id: n.id, ...absolute(n), ...nodeSize(n) }));
   const ctx: Ctx = { nodes, absolute, signals, renderedEdges, obstacles };
   const cables = edges.map((edge) => cableSvg(edge, ctx)).filter((edge) => edge !== null);
 
