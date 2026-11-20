@@ -34,6 +34,7 @@ export type AICommand =
       label: string;
       /** Device tag on the schematic this item represents. */
       tag?: string;
+      deviceId?: string;
       position?: { x?: number; y?: number; z?: number };
       size?: { w?: number; h?: number; d?: number };
       rotation?: number;
@@ -52,6 +53,7 @@ export type AICommand =
       equipment?: {
         label: string;
         tag?: string;
+        deviceId?: string;
         /** Lowest rack unit occupied; 1 is the bottom. Omit to stack upward. */
         u?: number;
         /** Height in rack units; defaults to 1. */

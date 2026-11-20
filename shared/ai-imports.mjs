@@ -42,6 +42,7 @@ export const roomItemSchema = z.object({
   kind: z.enum(['tv', 'projector', 'screen', 'speaker', 'subwoofer', 'rack', 'camera', 'keypad', 'table', 'desk', 'sofa', 'chair', 'cabinet', 'rug', 'plant', 'door', 'window']),
   label: text,
   tag: text.optional().describe('Existing schematic tag only; omit for furniture or unidentified equipment'),
+  deviceId: text.optional().describe('Stable schematic device ID from list_devices'),
   position: z.object({ x: coordinate, y: coordinate, z: coordinate }).describe('Item centre, metres; origin near-left floor corner, x right, y up, z back'),
   size: sizeSchema.describe('Physical dimensions in metres, not pixels'),
   rotation: z.number().finite().min(-360).max(360).default(0),

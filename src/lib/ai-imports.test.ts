@@ -56,8 +56,8 @@ describe('AI imports at both command boundaries', () => {
     expect(prepareRoomImport({ ...resized, mode: 'replace' }, DEFAULT_ROOM, [existing], [], () => 'new').items).toHaveLength(1);
     const linked = { ...layout, items: [{ ...layout.items[0]!, tag: 'TV-01' }] };
     expect(() => prepareRoomImport(linked, DEFAULT_ROOM, [], [], () => 'new')).toThrow(/Unknown schematic tag/);
-    expect(prepareRoomImport(linked, DEFAULT_ROOM, [], ['TV-01'], () => 'new').items[0]?.tag).toBe('TV-01');
-    expect(() => prepareRoomImport({ ...linked, items: [...linked.items, ...linked.items] }, DEFAULT_ROOM, [], ['TV-01'], () => 'new')).toThrow(/already contains/);
+    expect(prepareRoomImport(linked, DEFAULT_ROOM, [], [{ id: 'display', tag: 'TV-01', name: 'Display' }], () => 'new').items[0]?.tag).toBe('TV-01');
+    expect(() => prepareRoomImport({ ...linked, items: [...linked.items, ...linked.items] }, DEFAULT_ROOM, [], [{ id: 'display', tag: 'TV-01', name: 'Display' }], () => 'new')).toThrow(/already contains/);
   });
   test('project JSON keeps room, source metadata and legacy compatibility', () => {
     const prepared = prepareRoomImport(layout, DEFAULT_ROOM, [], [], () => 'new');
