@@ -1,7 +1,11 @@
 import { t, getLocale } from "./i18n";
-import type { Edge, Node } from "@xyflow/react";
+import { getSmoothStepPath, Position, type Edge, type Node } from "@xyflow/react";
+import { buildIcon, getIcon } from "@iconify/react";
 
-import { orthogonalRoute, roundedPath } from "./routing";
+import { avoidObstacles, midpointOf, roundedPath } from "./routing";
+import type { RenderedEdge } from "./export-geometry";
+import { arrowMarkers, type ArrowDirection } from "./arrow-direction";
+import type { RackNodeData } from "@/components/nodes/rack-node";
 import {
   DEFAULT_SIGNALS,
   findSignal,
@@ -84,9 +88,10 @@ const json = (v: unknown) =>
 
 type Ctx = {
   nodes: Node[];
-  edges: Edge[];
   absolute: (n: Node) => { x: number; y: number };
   signals: SignalDef[];
+  renderedEdges: ReadonlyMap<string, RenderedEdge>;
+  obstacles: { x: number; y: number; w: number; h: number }[];
 };
 
 const safeColor = (value: unknown, fallback: string) =>
@@ -106,12 +111,30 @@ function portIndex(ports: DevicePort[], id: unknown, dir: "in" | "out") {
   return ports.filter((p) => p.dir === dir).findIndex((p) => p.id === id);
 }
 
+const rackUnits = (value: unknown) => Math.min(100, Math.max(1, Math.floor(finite(value, 24))));
+
+function nodeSize(node: Node) {
+  if (node.type === "database") return { w: W, h: deviceHeight(deviceOf(node)) };
+  const defaults = {
+    zone: [460, 320],
+    rack: [302, 32 + rackUnits(node.data.units) * 15],
+    titleblock: [320, 480],
+    "icon-text": [132, 72],
+    shape: [160, 80],
+  };
+  const [w, h] = Object.hasOwn(defaults, node.type ?? "")
+    ? defaults[node.type as keyof typeof defaults] : [160, 40];
+  return {
+    w: finite(node.measured?.width, 0) || finite(node.width, 0) || w!,
+    h: finite(node.measured?.height, 0) || finite(node.height, 0) || h!,
+  };
+}
+
 /* ------------------------------------------------------------ svg parts */
 
 function zoneSvg(n: Node, at: { x: number; y: number }) {
   const d = n.data as { name?: string; color?: string };
-  const w = (typeof n.width === "number" ? n.width : 460) || 460;
-  const h = (typeof n.height === "number" ? n.height : 320) || 320;
+  const { w, h } = nodeSize(n);
   const color = safeColor(d.color, "#0071e3");
   return `<g class="zone">
   <rect x="${at.x}" y="${at.y}" width="${w}" height="${h}" rx="14"
@@ -172,8 +195,7 @@ function deviceSvg(
 }
 
 function simpleNodeSvg(n: Node, at: { x: number; y: number }) {
-  const w = (typeof n.width === "number" ? n.width : 160) || 160;
-  const h = (typeof n.height === "number" ? n.height : 40) || 40;
+  const { w, h } = nodeSize(n);
   const data = n.data as Record<string, unknown>;
 
   if (n.type === "memo") {
@@ -201,64 +223,186 @@ function simpleNodeSvg(n: Node, at: { x: number; y: number }) {
     return `<path d="${dPath}" fill="none" stroke="${safeColor(data.color, "#dc2626")}"
       stroke-width="${Number(data.strokeWidth) || 2}" stroke-linecap="round" stroke-linejoin="round"/>`;
   }
-  return "";
+  if (n.type === "shape") {
+    const shapes = {
+      rectangle: '<rect x="2" y="2" width="96" height="96" rx="6"/>',
+      ellipse: '<ellipse cx="50" cy="50" rx="48" ry="48"/>',
+      diamond: '<polygon points="50,2 98,50 50,98 2,50"/>',
+      triangle: '<polygon points="50,2 98,98 2,98"/>',
+    };
+    const shape = Object.hasOwn(shapes, String(data.shape))
+      ? shapes[data.shape as keyof typeof shapes] : shapes.rectangle;
+    return `<g data-id="${esc(n.id)}">
+      <svg x="${at.x}" y="${at.y}" width="${w}" height="${h}" viewBox="0 0 100 100" preserveAspectRatio="none"
+        fill="var(--card)" fill-opacity=".6" stroke="${safeColor(data.color, "#64748b")}" stroke-width="1.4">${shape}</svg>
+      <foreignObject x="${at.x + 8}" y="${at.y}" width="${w - 16}" height="${h}">
+        <div xmlns="http://www.w3.org/1999/xhtml" class="shape-text">${esc(data.text)}</div>
+      </foreignObject></g>`;
+  }
+  if (n.type === "icon-text") {
+    const name = typeof data.icon === "string" ? data.icon : "";
+    const icon = name ? getIcon(name) : null;
+    const drawing = icon ? buildIcon(icon) : null;
+    // Icon library markup stays inside an SVG image resource.
+    const src = drawing && "data:image/svg+xml," + encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${esc(drawing.attributes.viewBox)}" color="#64748b">${drawing.body}</svg>`,
+    );
+    return `<g data-id="${esc(n.id)}">
+      <title>${esc(name)}</title>
+      ${src
+        ? `<image x="${at.x + w / 2 - 14}" y="${at.y + 10}" width="28" height="28" href="${esc(src)}"/>`
+        : `<text x="${at.x + w / 2}" y="${at.y + 31}" text-anchor="middle" class="dev-name">${esc(name)}</text>`}
+      <foreignObject x="${at.x}" y="${at.y + 40}" width="${w}" height="${Math.max(18, h - 40)}">
+        <div xmlns="http://www.w3.org/1999/xhtml" class="annotation">${esc(data.label)}</div>
+      </foreignObject></g>`;
+  }
+  if (n.type === "rack") {
+    const rack = n.data as unknown as RackNodeData;
+    const units = rackUnits(rack.units);
+    const unitHeight = Math.max(1, (h - 32) / units);
+    const slots = Array.from({ length: units }, (_, i) => {
+      const y = at.y + 32 + i * unitHeight;
+      return `<path class="rule" d="M ${at.x} ${y} h ${w}"/><text class="meta" x="${at.x + 5}" y="${y + 11}">${units - i}</text>`;
+    }).join("");
+    const items = (rack.items ?? []).map((item) => {
+      const height = Math.max(1, finite(item.height, 1));
+      const y = at.y + 32 + (units - finite(item.u, 1) - height + 1) * unitHeight;
+      return `<g>
+        <rect x="${at.x + 26}" y="${y}" width="${w - 26}" height="${height * unitHeight}" rx="2"
+          fill="${safeColor(item.color, "#64748b")}" fill-opacity=".22"/>
+        <text x="${at.x + 30}" y="${y + 11}" class="port">${esc(item.tag)} ${esc(item.label)}</text>
+      </g>`;
+    }).join("");
+    return `<g data-id="${esc(n.id)}">
+      <rect x="${at.x}" y="${at.y}" width="${w}" height="${h}" rx="8" class="device-body"/>
+      <text x="${at.x + 8}" y="${at.y + 20}" class="dev-name">${esc(rack.tag)} ${esc(rack.name)}</text>
+      ${slots}${items}</g>`;
+  }
+  if (n.type === "titleblock") {
+    const title = n.data as Partial<TitleBlockData>;
+    const fields = [
+      title.company, title.address, title.cityStateZip, title.phone, title.website,
+      title.client, title.project, title.projectNumber, title.title, title.description,
+      title.projectManager, title.drawnBy, title.checkedBy, title.date, title.revised,
+      title.rev, title.scale, title.page, title.notice,
+    ];
+    return `<g data-id="${esc(n.id)}">
+      <rect x="${at.x}" y="${at.y}" width="${w}" height="${h}" class="device-body"/>
+      <foreignObject x="${at.x + 8}" y="${at.y + 8}" width="${w - 16}" height="${h - 16}">
+        <div xmlns="http://www.w3.org/1999/xhtml" class="sheet-fields">
+          ${fields.filter(Boolean).map((value) => `<div>${esc(value)}</div>`).join("")}
+        </div>
+      </foreignObject></g>`;
+  }
+  const message = n.type === "image" ? t("Image could not be embedded.") : t("Unsupported drawing object.");
+  return `<g data-id="${esc(n.id)}">
+    <rect x="${at.x}" y="${at.y}" width="${w}" height="${h}" class="device-body"/>
+    <foreignObject x="${at.x + 4}" y="${at.y + 4}" width="${w - 8}" height="${h - 8}">
+      <div xmlns="http://www.w3.org/1999/xhtml" class="annotation">${esc(message)}</div>
+    </foreignObject></g>`;
 }
 
 /* --------------------------------------------------------------- cables */
 
-function cableSvg(edge: Edge, ctx: Ctx) {
-  const source = ctx.nodes.find((n) => n.id === edge.source);
-  const target = ctx.nodes.find((n) => n.id === edge.target);
-  if (!source || !target) return null;
-
-  const sd = deviceOf(source);
-  const td = deviceOf(target);
-  const si = portIndex(sd.ports ?? [], edge.sourceHandle, "out");
-  const ti = portIndex(td.ports ?? [], edge.targetHandle, "in");
-  if (si < 0 || ti < 0) return null;
-
-  const sAt = ctx.absolute(source);
-  const tAt = ctx.absolute(target);
-  const from = { x: sAt.x + W, y: sAt.y + portY(si) };
-  const to = { x: tAt.x, y: tAt.y + portY(ti) };
-
-  const data = (edge.data ?? {}) as {
-    midX?: number;
-    midY?: number;
-    lane?: number;
-    label?: string;
-  };
-  const route = orthogonalRoute(
-    from,
-    to,
-    "right",
-    "left",
-    finite(data.midX),
-    finite(data.midY),
-    finite(data.lane, 0),
-  );
-  const port = (sd.ports ?? []).filter((p) => p.dir === "out")[si];
-  const definition = findSignal(ctx.signals, port?.signal);
-  const signal = definition.key;
-  const marker = ctx.signals.indexOf(definition);
-  const color = signalColor(ctx.signals, signal);
-
-  const mid = route.points[Math.floor(route.points.length / 2)] ?? from;
-  const label = (data.label ?? "").trim();
-
-  return {
-    signal,
-    svg: `<g class="cable" data-id="${esc(edge.id)}" data-signal="${esc(signal)}">
-  <path d="${roundedPath(route.points)}" fill="none" stroke="${color}" stroke-width="2"
-        marker-end="url(#arrow-${marker})"/>
-  <path d="${roundedPath(route.points)}" fill="none" stroke="transparent" stroke-width="14" class="hit"/>
-  ${
-    label
-      ? `<g class="cable-label"><rect x="${mid.x - label.length * 3.2 - 5}" y="${mid.y - 20}"
-        width="${label.length * 6.4 + 10}" height="14" rx="4" class="chip"/>
-  <text x="${mid.x}" y="${mid.y - 10}" text-anchor="middle" class="cable-text">${esc(label)}</text></g>`
-      : ""
+function edgeAnchor(node: Node, handle: string | null | undefined, output: boolean, ctx: Ctx) {
+  const at = ctx.absolute(node);
+  const { w, h } = nodeSize(node);
+  if (node.type === "database") {
+    const i = portIndex(deviceOf(node).ports ?? [], handle, output ? "out" : "in");
+    if (i === -1) return null;
+    return { x: at.x + (output ? w : 0), y: at.y + portY(i), side: output ? Position.Right : Position.Left };
   }
+  const side = Object.values(Position).find((value) => handle === value || handle?.startsWith(value + "-"))
+    ?? (output ? Position.Right : Position.Left);
+  switch (side) {
+    case Position.Left: return { x: at.x, y: at.y + h / 2, side };
+    case Position.Right: return { x: at.x + w, y: at.y + h / 2, side };
+    case Position.Top: return { x: at.x + w / 2, y: at.y, side };
+    case Position.Bottom: return { x: at.x + w / 2, y: at.y + h, side };
+  }
+}
+
+function fallbackEdge(
+  edge: Edge,
+  source: Node,
+  target: Node,
+  isCable: boolean,
+  ctx: Ctx,
+): RenderedEdge | null {
+  const from = edgeAnchor(source, edge.sourceHandle, true, ctx);
+  const to = edgeAnchor(target, edge.targetHandle, false, ctx);
+  if (!from || !to) return null;
+  const data = edge.data ?? {};
+  if (isCable) {
+    const { points } = avoidObstacles(
+      from, to, from.side, to.side, ctx.obstacles,
+      finite(data.midX), finite(data.midY), finite(data.lane, 0),
+    );
+    const mid = midpointOf(points);
+    const x = Math.min(...points.map((point) => point.x));
+    const y = Math.min(...points.map((point) => point.y));
+    return {
+      path: roundedPath(points),
+      bounds: {
+        x, y,
+        width: Math.max(...points.map((point) => point.x)) - x,
+        height: Math.max(...points.map((point) => point.y)) - y,
+      },
+      label: { x: mid.x, y: mid.y - 13 },
+    };
+  }
+  const [path, x, y] = getSmoothStepPath({
+    sourceX: from.x, sourceY: from.y, sourcePosition: from.side,
+    targetX: to.x, targetY: to.y, targetPosition: to.side, borderRadius: 8,
+  });
+  return {
+    path,
+    bounds: {
+      x: Math.min(from.x, to.x), y: Math.min(from.y, to.y),
+      width: Math.abs(from.x - to.x), height: Math.abs(from.y - to.y),
+    },
+    label: { x, y },
+  };
+}
+
+function cableSvg(edge: Edge, ctx: Ctx) {
+  const source = ctx.nodes.find((node) => node.id === edge.source);
+  const target = ctx.nodes.find((node) => node.id === edge.target);
+  if (!source || !target) return null;
+  const isCable = source.type === "database" || target.type === "database";
+  const geometry = ctx.renderedEdges.get(edge.id) ?? fallbackEdge(edge, source, target, isCable, ctx);
+  if (!geometry) return null;
+
+  const port = source.type === "database"
+    ? deviceOf(source).ports?.find((p) => p.id === edge.sourceHandle)
+    : undefined;
+  const definition = findSignal(ctx.signals, port?.signal);
+  const signal = isCable ? definition.key : "";
+  const marker = isCable ? ctx.signals.indexOf(definition) : "generic";
+  const color = isCable ? definition.color : "var(--muted)";
+  const directions = arrowMarkers(isCable ? "forward" : edge.data?.direction as ArrowDirection, color);
+  const markerAttributes = [
+    directions.markerStart && `marker-start="url(#arrow-${marker})"`,
+    directions.markerEnd && `marker-end="url(#arrow-${marker})"`,
+  ].filter(Boolean).join(" ");
+
+  const label = String(edge.data?.label ?? "").trim();
+  const mid = geometry.label ?? geometry.bounds;
+  const labelX = finite(mid.x, 0);
+  const labelY = finite(mid.y, 0);
+  const labelWidth = label.length * 11 + 10;
+  const path = esc(geometry.path);
+  return {
+    bounds: geometry.bounds,
+    labelBounds: label ? { x: labelX - labelWidth / 2, y: labelY - 8, width: labelWidth, height: 16 } : undefined,
+    svg: `<g class="cable" data-id="${esc(edge.id)}" data-signal="${esc(signal)}">
+  <path d="${path}" fill="none" stroke="${color}" stroke-width="2" ${markerAttributes}/>
+  <path d="${path}" fill="none" stroke="transparent" stroke-width="14" class="hit"/>
+  ${label
+    ? `<g class="cable-label"><rect x="${labelX - labelWidth / 2}" y="${labelY - 8}"
+        width="${labelWidth}" height="16" rx="4" class="chip"/>
+      <text x="${labelX}" y="${labelY + 3}" text-anchor="middle" class="cable-text">${esc(label)}</text></g>`
+    : ""}
 </g>`,
   };
 }
@@ -392,6 +536,7 @@ export function buildViewerHtml({
   room,
   roomItems: projectRoomItems,
   signals: projectSignals = DEFAULT_SIGNALS,
+  renderedEdges = new Map(),
   absolute: getAbsolute,
 }: {
   nodes: Node[];
@@ -399,6 +544,7 @@ export function buildViewerHtml({
   room: RoomSpec;
   roomItems: RoomItem[];
   signals?: SignalDef[];
+  renderedEdges?: ReadonlyMap<string, RenderedEdge>;
   absolute: (n: Node) => { x: number; y: number };
 }) {
   const validSignals = projectSignals.filter((signal) => typeof signal?.key === "string");
@@ -412,59 +558,41 @@ export function buildViewerHtml({
     const { x, y } = getAbsolute(node);
     return { x: finite(x, 0), y: finite(y, 0) };
   };
-  const ctx: Ctx = { nodes, edges, absolute, signals };
-
   const zones = nodes.filter((n) => n.type === "zone");
   const devices = nodes.filter((n) => n.type === "database");
-  const others = nodes.filter(
-    (n) => !["zone", "database", "titleblock"].includes(n.type ?? ""),
-  );
+  const others = nodes.filter((n) => !["zone", "database"].includes(n.type ?? ""));
+  // The first title block also identifies the document in the viewer header.
   const titleNode = nodes.find((n) => n.type === "titleblock");
   const title = (titleNode?.data ?? {}) as Partial<TitleBlockData>;
+  const obstacles = devices.map((n) => ({ ...absolute(n), ...nodeSize(n) }));
+  const ctx: Ctx = { nodes, absolute, signals, renderedEdges, obstacles };
+  const cables = edges.map((edge) => cableSvg(edge, ctx)).filter((edge) => edge !== null);
 
-  // Bounds across everything we are going to draw.
-  let minX = Infinity,
-    minY = Infinity,
-    maxX = -Infinity,
-    maxY = -Infinity;
-  for (const n of [...zones, ...devices, ...others]) {
-    const at = absolute(n);
-    const w =
-      n.type === "database"
-        ? W
-        : (typeof n.width === "number" ? n.width : 160) || 160;
-    const h =
-      n.type === "database"
-        ? deviceHeight(deviceOf(n))
-        : (typeof n.height === "number" ? n.height : 40) || 40;
-    minX = Math.min(minX, at.x);
-    minY = Math.min(minY, at.y);
-    maxX = Math.max(maxX, at.x + w);
-    maxY = Math.max(maxY, at.y + h);
+  const parts = nodes.map((node) => {
+    const { w, h } = nodeSize(node);
+    return { ...absolute(node), width: w, height: h };
+  });
+  for (const cable of cables) {
+    parts.push(cable.bounds);
+    if (cable.labelBounds) parts.push(cable.labelBounds);
   }
-  if (!Number.isFinite(minX)) {
-    minX = 0;
-    minY = 0;
-    maxX = 800;
-    maxY = 600;
+  if (!parts.length) parts.push({ x: 0, y: 0, width: 800, height: 600 });
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const part of parts) {
+    minX = Math.min(minX, part.x);
+    minY = Math.min(minY, part.y);
+    maxX = Math.max(maxX, part.x + part.width);
+    maxY = Math.max(maxY, part.y + part.height);
   }
-  const M = 60;
-  const viewBox = `${minX - M} ${minY - M} ${maxX - minX + M * 2} ${maxY - minY + M * 2}`;
+  const margin = 60;
+  const viewBox = `${minX - margin} ${minY - margin} ${maxX - minX + margin * 2} ${maxY - minY + margin * 2}`;
 
-  const cables = edges.map((e) => cableSvg(e, ctx)).filter(Boolean) as {
-    signal: string;
-    svg: string;
-  }[];
-
-  const markers = signals
-    .map(
-      (
-        s, index,
-      ) => `<marker id="arrow-${index}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6"
+  const marker = (id: number | string, color: string) =>
+    `<marker id="arrow-${id}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6"
       markerHeight="6" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="${s.color}"/></marker>`,
-    )
-    .join("");
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="${color}"/></marker>`;
+  const markers = signals.map((signal, index) => marker(index, signal.color)).join("")
+    + marker("generic", "var(--muted)");
 
   const { deviceRows, cableRows, bomRows } = scheduleRows(nodes, edges);
 
@@ -550,6 +678,7 @@ export function buildViewerHtml({
   .tab.on{display:block}
 
   #stage{width:100%;height:100%;cursor:grab;overflow:hidden}
+  .export-warning{position:absolute;top:10px;left:12px;padding:6px;background:var(--card);font-size:12px}
   #stage.grabbing{cursor:grabbing}
   #schematic{width:100%;height:100%;display:block;touch-action:none}
 
@@ -567,6 +696,10 @@ export function buildViewerHtml({
   .port{font-size:11px;fill:var(--fg)}
   .conn{font:9px ui-monospace,SFMono-Regular,Menlo,monospace;fill:var(--muted)}
   .zone-label{font-size:11px;font-weight:600}
+  .annotation,.shape-text,.sheet-fields{font-size:11px;color:var(--fg);white-space:pre-wrap;overflow-wrap:anywhere}
+  .annotation,.shape-text{text-align:center}
+  .shape-text{height:100%;display:grid;place-items:center}
+  .sheet-fields div{padding:3px 0;border-bottom:1px solid var(--line)}
   .memo{font-size:12px;color:#111;white-space:pre-wrap}
   .freetext{font-family:inherit}
   .cable .hit{cursor:pointer}
@@ -650,6 +783,9 @@ export function buildViewerHtml({
     <div id="stage">${schematic}</div>
     <div class="hint">${esc(t("Drag to pan \u00b7 scroll to zoom \u00b7 click a device or cable"))}</div>
     <div class="legend">${legend}</div>
+    ${cables.length < edges.length
+      ? `<div class="export-warning" role="status">${esc(t("Some connections could not be drawn. Check their endpoints in the project."))}</div>`
+      : ""}
     <aside id="panel"></aside>
   </section>
 

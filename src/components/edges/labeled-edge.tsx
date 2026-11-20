@@ -195,6 +195,9 @@ export function LabeledEdge({
         {/* Cable designation — lifted clear of the line so it never covers a
             grab dot, and in plain foreground ink for contrast in both themes. */}
         <div
+          data-export-edge-label={id}
+          data-export-x={labelPoint.x}
+          data-export-y={labelPoint.y - 13}
           className="nodrag nopan absolute"
           style={{
             transform: `translate(-50%, -50%) translate(${labelPoint.x}px, ${labelPoint.y - 13}px)`,

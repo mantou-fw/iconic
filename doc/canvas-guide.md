@@ -172,6 +172,9 @@ representations.
 | Interactive viewer | One self-contained `.html` file — pannable, zoomable, no server needed |
 | 3D room view | Switches to the room |
 
+The interactive viewer keeps each title block on the drawing. The first block
+also supplies the viewer's heading and project metadata.
+
 The coloured dot next to the menu is the **desktop command channel status**: grey = offline,
 amber = connecting, green = live. If it is not green, an agent cannot drive the
 canvas.
