@@ -89,6 +89,17 @@ type Ctx = {
   signals: SignalDef[];
 };
 
+const safeColor = (value: unknown, fallback: string) =>
+  typeof value === "string" && /^#(?:[a-f0-9]{3,4}|[a-f0-9]{6}|[a-f0-9]{8})$/i.test(value)
+    ? value
+    : fallback;
+
+function finite(value: unknown, fallback: number): number;
+function finite(value: unknown): number | undefined;
+function finite(value: unknown, fallback?: number) {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
 const deviceOf = (n: Node) => n.data as unknown as AVDeviceData;
 
 function portIndex(ports: DevicePort[], id: unknown, dir: "in" | "out") {
@@ -101,7 +112,7 @@ function zoneSvg(n: Node, at: { x: number; y: number }) {
   const d = n.data as { name?: string; color?: string };
   const w = (typeof n.width === "number" ? n.width : 460) || 460;
   const h = (typeof n.height === "number" ? n.height : 320) || 320;
-  const color = d.color ?? "#0071e3";
+  const color = safeColor(d.color, "#0071e3");
   return `<g class="zone">
   <rect x="${at.x}" y="${at.y}" width="${w}" height="${h}" rx="14"
         fill="${color}" fill-opacity="0.06" stroke="${color}" stroke-opacity="0.5"
@@ -166,24 +177,28 @@ function simpleNodeSvg(n: Node, at: { x: number; y: number }) {
   const data = n.data as Record<string, unknown>;
 
   if (n.type === "memo") {
-    return `<g><rect x="${at.x}" y="${at.y}" width="${w}" height="${h}" rx="8" fill="${esc(data.color ?? "#fef08a")}"/>
+    return `<g><rect x="${at.x}" y="${at.y}" width="${w}" height="${h}" rx="8" fill="${safeColor(data.color, "#fef08a")}"/>
     <foreignObject x="${at.x + 8}" y="${at.y + 6}" width="${w - 16}" height="${h - 12}">
       <div xmlns="http://www.w3.org/1999/xhtml" class="memo">${esc(data.text)}</div>
     </foreignObject></g>`;
   }
   if (n.type === "text") {
-    return `<text x="${at.x}" y="${at.y + 14}" class="freetext" fill="${esc(data.color ?? "#0f172a")}"
+    return `<text x="${at.x}" y="${at.y + 14}" class="freetext" fill="${safeColor(data.color, "#0f172a")}"
       style="font-size:${Number(data.fontSize) || 14}px">${esc(data.text)}</text>`;
   }
-  if (n.type === "image" && typeof data.src === "string") {
+  if (
+    n.type === "image" &&
+    typeof data.src === "string" &&
+    /^data:image\/(?:png|jpeg|gif|webp|avif|bmp|x-icon|vnd\.microsoft\.icon|svg\+xml);base64,[a-z0-9+/]+={0,2}$/i.test(data.src)
+  ) {
     return `<image x="${at.x}" y="${at.y}" width="${w}" height="${h}" href="${esc(data.src)}" preserveAspectRatio="xMidYMid meet"/>`;
   }
   if (n.type === "drawing") {
     const pts = (data.points as { x: number; y: number }[]) ?? [];
     const dPath = pts
-      .map((p, i) => `${i ? "L" : "M"} ${at.x + p.x} ${at.y + p.y}`)
+      .map((p, i) => `${i ? "L" : "M"} ${at.x + finite(p.x, 0)} ${at.y + finite(p.y, 0)}`)
       .join(" ");
-    return `<path d="${dPath}" fill="none" stroke="${esc(data.color ?? "#dc2626")}"
+    return `<path d="${dPath}" fill="none" stroke="${safeColor(data.color, "#dc2626")}"
       stroke-width="${Number(data.strokeWidth) || 2}" stroke-linecap="round" stroke-linejoin="round"/>`;
   }
   return "";
@@ -218,12 +233,14 @@ function cableSvg(edge: Edge, ctx: Ctx) {
     to,
     "right",
     "left",
-    data.midX,
-    data.midY,
-    data.lane ?? 0,
+    finite(data.midX),
+    finite(data.midY),
+    finite(data.lane, 0),
   );
   const port = (sd.ports ?? []).filter((p) => p.dir === "out")[si];
-  const signal = findSignal(ctx.signals, port?.signal).key;
+  const definition = findSignal(ctx.signals, port?.signal);
+  const signal = definition.key;
+  const marker = ctx.signals.indexOf(definition);
   const color = signalColor(ctx.signals, signal);
 
   const mid = route.points[Math.floor(route.points.length / 2)] ?? from;
@@ -231,9 +248,9 @@ function cableSvg(edge: Edge, ctx: Ctx) {
 
   return {
     signal,
-    svg: `<g class="cable" data-id="${esc(edge.id)}" data-signal="${signal}">
+    svg: `<g class="cable" data-id="${esc(edge.id)}" data-signal="${esc(signal)}">
   <path d="${roundedPath(route.points)}" fill="none" stroke="${color}" stroke-width="2"
-        marker-end="url(#arrow-${signal})"/>
+        marker-end="url(#arrow-${marker})"/>
   <path d="${roundedPath(route.points)}" fill="none" stroke="transparent" stroke-width="14" class="hit"/>
   ${
     label
@@ -251,16 +268,19 @@ function cableSvg(edge: Edge, ctx: Ctx) {
 function roomPlanSvg(room: RoomSpec, items: RoomItem[]) {
   const S = 90; // pixels per metre
   const pad = 40;
-  const w = room.width * S;
-  const d = room.depth * S;
+  const width = finite(room.width, 0);
+  const depth = finite(room.depth, 0);
+  const w = width * S;
+  const d = depth * S;
+  const gridStep = Math.max(1, Math.ceil(Math.max(width, depth) / 100));
 
   const grid: string[] = [];
-  for (let x = 1; x < room.width; x++) {
+  for (let x = 1; x < width; x += gridStep) {
     grid.push(
       `<line x1="${pad + x * S}" y1="${pad}" x2="${pad + x * S}" y2="${pad + d}" class="grid"/>`,
     );
   }
-  for (let z = 1; z < room.depth; z++) {
+  for (let z = 1; z < depth; z += gridStep) {
     grid.push(
       `<line x1="${pad}" y1="${pad + z * S}" x2="${pad + w}" y2="${pad + z * S}" class="grid"/>`,
     );
@@ -277,11 +297,11 @@ function roomPlanSvg(room: RoomSpec, items: RoomItem[]) {
       const cy = pad + item.position.z * S;
       const wall = item.mount === "wall" || item.mount === "ceiling";
       return `<g class="plan-item" data-id="${esc(item.id)}" tabindex="0"
-        transform="rotate(${item.rotation} ${cx} ${cy})">
+        transform="rotate(${finite(item.rotation, 0)} ${cx} ${cy})">
     <rect x="${cx - iw / 2}" y="${cy - id / 2}" width="${iw}" height="${id}" rx="3"
-          fill="${esc(item.color ?? "#94a3b8")}" fill-opacity="${wall ? 0.95 : 0.75}"
+          fill="${safeColor(item.color, "#94a3b8")}" fill-opacity="${wall ? 0.95 : 0.75}"
           stroke="${wall ? "#0071e3" : "rgba(0,0,0,.35)"}" stroke-width="${wall ? 1.6 : 1}"/>
-    <title>${esc(item.label)}${item.tag ? ` (${esc(item.tag)})` : ""} — ${esc(item.mount)} @ ${item.position.y.toFixed(2)}m</title>
+    <title>${esc(item.label)}${item.tag ? ` (${esc(item.tag)})` : ""} — ${esc(item.mount)} @ ${finite(item.position.y, 0).toFixed(2)}m</title>
   </g>`;
     })
     .join("\n");
@@ -291,9 +311,9 @@ function roomPlanSvg(room: RoomSpec, items: RoomItem[]) {
   ${grid.join("")}
   <rect x="${pad}" y="${pad}" width="${w}" height="${d}" class="walls"/>
   ${shapes}
-  <text x="${pad + w / 2}" y="${pad - 14}" text-anchor="middle" class="plan-dim">${room.width} m</text>
+  <text x="${pad + w / 2}" y="${pad - 14}" text-anchor="middle" class="plan-dim">${width} m</text>
   <text x="${pad - 14}" y="${pad + d / 2}" text-anchor="middle" class="plan-dim"
-        transform="rotate(-90 ${pad - 14} ${pad + d / 2})">${room.depth} m</text>
+        transform="rotate(-90 ${pad - 14} ${pad + d / 2})">${depth} m</text>
 </svg>`;
 }
 
@@ -370,9 +390,9 @@ export function buildViewerHtml({
   nodes,
   edges,
   room,
-  roomItems,
-  signals = DEFAULT_SIGNALS,
-  absolute,
+  roomItems: projectRoomItems,
+  signals: projectSignals = DEFAULT_SIGNALS,
+  absolute: getAbsolute,
 }: {
   nodes: Node[];
   edges: Edge[];
@@ -381,6 +401,17 @@ export function buildViewerHtml({
   signals?: SignalDef[];
   absolute: (n: Node) => { x: number; y: number };
 }) {
+  const validSignals = projectSignals.filter((signal) => typeof signal?.key === "string");
+  const signals = (validSignals.length ? validSignals : DEFAULT_SIGNALS)
+    .map((signal) => ({ ...signal, color: safeColor(signal.color, "#64748b") }));
+  const roomItems = projectRoomItems.map((item) => ({
+    ...item,
+    color: safeColor(item.color, "#94a3b8"),
+  }));
+  const absolute = (node: Node) => {
+    const { x, y } = getAbsolute(node);
+    return { x: finite(x, 0), y: finite(y, 0) };
+  };
   const ctx: Ctx = { nodes, edges, absolute, signals };
 
   const zones = nodes.filter((n) => n.type === "zone");
@@ -428,8 +459,8 @@ export function buildViewerHtml({
   const markers = signals
     .map(
       (
-        s,
-      ) => `<marker id="arrow-${s.key}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6"
+        s, index,
+      ) => `<marker id="arrow-${index}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6"
       markerHeight="6" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="${s.color}"/></marker>`,
     )
@@ -451,8 +482,8 @@ export function buildViewerHtml({
     .map(
       (
         s,
-      ) => `<label class="sig"><input type="checkbox" checked data-signal="${s.key}">
-      <span class="dot" style="background:${s.color}"></span>${s.label}</label>`,
+      ) => `<label class="sig"><input type="checkbox" checked data-signal="${esc(s.key)}">
+      <span class="dot" style="background:${s.color}"></span>${esc(s.label)}</label>`,
     )
     .join("");
 
@@ -676,9 +707,9 @@ export function buildViewerHtml({
   var DEVICES = ${json(deviceRows)};
   var CABLES  = ${json(cableRows)};
   var ITEMS   = ${json(roomItems)};
-  var SIGNALS = ${json(Object.fromEntries(signals.map((s) => [s.key, s])))};
+  var SIGNALS = new Map(${json(signals.map((s) => [s.key, s]))});
 
-  var byId = {};
+  var byId = Object.create(null);
   DEVICES.forEach(function(d){ byId[d.id] = d; });
 
   /* ---- tabs ---- */
@@ -696,7 +727,7 @@ export function buildViewerHtml({
   themer.onclick = function(){
     var dark = document.documentElement.dataset.theme === "dark";
     document.documentElement.dataset.theme = dark ? "light" : "dark";
-    themer.textContent = dark ? ${JSON.stringify(t("Dark"))} : ${JSON.stringify(t("Light"))};
+    themer.textContent = dark ? ${json(t("Dark"))} : ${json(t("Light"))};
   };
 
   /* ---- pan & zoom ---- */
@@ -765,9 +796,9 @@ export function buildViewerHtml({
       '<tr><th>${esc(t("Model"))}</th></tr><tr><td>' + (escapeHtml(d.model) || "—") + '</td></tr></table>' +
       '<table><tr><th>${esc(t("Ports"))}</th></tr>' +
       d.ports.map(function(p){
-        var c = (SIGNALS[p.signal] || {}).color || "#888";
+        var c = (SIGNALS.get(p.signal) || {}).color || "#888";
         return '<tr><td><span class="sw" style="background:' + c + '"></span>' +
-          escapeHtml(p.label) + ' <span style="opacity:.55">' + (p.dir === "in" ? ${JSON.stringify(t("In"))} : ${JSON.stringify(t("Out"))}) +
+          escapeHtml(p.label) + ' <span style="opacity:.55">' + (p.dir === "in" ? ${json(t("In"))} : ${json(t("Out"))}) +
           (p.connector ? " · " + escapeHtml(p.connector) : "") + '</span></td></tr>';
       }).join("") + '</table>' +
       (links.length
@@ -787,12 +818,12 @@ export function buildViewerHtml({
     clearSel();
     var g = document.querySelector('.cable[data-id="' + CSS.escape(id) + '"]');
     if (g) g.classList.add("hi");
-    var col = (SIGNALS[c.signal] || {}).color || "#888";
+    var col = (SIGNALS.get(c.signal) || {}).color || "#888";
     panel.innerHTML =
       '<button class="close" title="${esc(t("Close"))}">&times;</button>' +
-      '<h2>' + (escapeHtml(c.label) || ${JSON.stringify(t("Cable"))}) + '</h2>' +
+      '<h2>' + (escapeHtml(c.label) || ${json(t("Cable"))}) + '</h2>' +
       '<div class="tagline"><span class="sw" style="background:' + col + '"></span>' +
-      escapeHtml((SIGNALS[c.signal] || {}).label || c.signal) + '</div>' +
+      escapeHtml((SIGNALS.get(c.signal) || {}).label || c.signal) + '</div>' +
       '<table><tr><th>${esc(t("From"))}</th></tr><tr><td>' + escapeHtml(c.fromTag) + " · " + escapeHtml(c.fromPort) +
       (c.fromConn ? ' <span style="opacity:.55">' + escapeHtml(c.fromConn) + "</span>" : "") + '</td></tr>' +
       '<tr><th>${esc(t("To"))}</th></tr><tr><td>' + escapeHtml(c.toTag) + " · " + escapeHtml(c.toPort) +
@@ -813,7 +844,7 @@ export function buildViewerHtml({
   document.querySelectorAll(".sig input").forEach(function(box){
     box.onchange = function(){
       var s = box.dataset.signal;
-      document.querySelectorAll('.cable[data-signal="' + s + '"]').forEach(function(c){
+      document.querySelectorAll('.cable[data-signal="' + CSS.escape(s) + '"]').forEach(function(c){
         c.style.display = box.checked ? "" : "none";
       });
     };
@@ -858,7 +889,7 @@ export function buildViewerHtml({
         "Mount: " + escapeHtml(it.mount) + "<br>" +
         "Height: " + it.position.y.toFixed(2) + " m<br>" +
         "Position: " + it.position.x.toFixed(2) + ", " + it.position.z.toFixed(2) + " m<br>" +
-        "Size: " + it.size.w + "×" + it.size.h + "×" + it.size.d + " m" +
+        "Size: " + escapeHtml(it.size.w) + "×" + escapeHtml(it.size.h) + "×" + escapeHtml(it.size.d) + " m" +
         (it.note ? "<br><br>" + escapeHtml(it.note) : "") + "</div>";
     }
     list.querySelectorAll("button").forEach(function(b){ b.onclick = function(){ selectItem(b.dataset.id); }; });
