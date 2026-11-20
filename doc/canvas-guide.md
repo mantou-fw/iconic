@@ -154,8 +154,10 @@ View presets: ISO, FRONT, REAR, LEFT, RIGHT, TOP. In plan view you can drag
 items to reposition them; wall-mounted items slide along their wall. The
 inspector shows X/Y/Z in metres and AFF (height above finished floor).
 
-Give a room item the same `tag` as a device on the schematic to link the two
-representations.
+Room and rack references store the schematic device ID so tag edits retain the
+link. A unique tag also works when creating a reference. For older projects
+with conflicting or missing references, use **Review device references** to
+choose the intended device or keep the original tag without a link.
 
 ---
 

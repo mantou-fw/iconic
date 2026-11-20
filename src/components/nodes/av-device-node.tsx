@@ -1,5 +1,5 @@
 import { useT } from "@/lib/i18n";
-import { memo, useCallback } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { Handle, Position, useReactFlow, type NodeProps } from "@xyflow/react";
 import { Plus, X } from "lucide-react";
 
@@ -10,6 +10,8 @@ import {
   useSignals,
   type SignalType,
 } from "@/lib/signal-types";
+import { tagKey } from "@/lib/device-identity";
+import { useDeviceIdentity } from "@/components/device-identity-context";
 import { cn } from "@/lib/utils";
 import type { ProductImport } from "@/lib/ai-imports";
 import { ImportEvidence } from "@/components/import-evidence";
@@ -247,6 +249,24 @@ function AVDeviceNodeImpl({
   const t = useT();
   const { updateNodeData } = useReactFlow();
 
+  const { rename } = useDeviceIdentity();
+  const [tagDraft, setTagDraft] = useState(data.tag);
+  const [tagError, setTagError] = useState<string>();
+  const cancelTag = useRef(false);
+  useEffect(() => { setTagDraft(data.tag); setTagError(undefined); }, [data.tag]);
+
+  const commitTag = () => {
+    if (cancelTag.current) {
+      cancelTag.current = false;
+      setTagDraft(data.tag);
+      return;
+    }
+    const error = rename(id, tagDraft);
+    setTagError(error);
+    if (error) setTagDraft(data.tag);
+    else if (tagDraft !== data.tag) setTagDraft(tagKey(tagDraft));
+  };
+
   const patch = useCallback(
     (p: Partial<AVDeviceData>) => updateNodeData(id, p),
     [id, updateNodeData],
@@ -283,10 +303,18 @@ function AVDeviceNodeImpl({
       <div className="border-b border-[var(--hairline)] bg-black/[0.03] px-2 py-1.5 dark:bg-white/[0.04]">
         <div className="flex items-center gap-1.5">
           <CellInput
-            value={data.tag}
+            value={tagDraft}
             placeholder={t("TAG")}
             title={t("Reference designator")}
-            onChange={(e) => patch({ tag: e.target.value.toUpperCase() })}
+            aria-invalid={!!tagError}
+            onChange={(e) => { setTagDraft(e.target.value.toUpperCase()); setTagError(undefined); }}
+            onBlur={commitTag}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter" && event.key !== "Escape") return;
+              event.stopPropagation();
+              if (event.key === "Escape") cancelTag.current = true;
+              event.currentTarget.blur();
+            }}
             className="w-[64px] shrink-0 rounded-md border border-[var(--hairline)] bg-background/70 py-[1px] text-center font-mono text-[10px] font-semibold uppercase leading-tight tracking-tight"
           />
           <CellInput
@@ -296,6 +324,7 @@ function AVDeviceNodeImpl({
             className="min-w-0 flex-1 text-[12px] font-semibold leading-tight"
           />
         </div>
+        {tagError && <p role="alert" className="text-xs text-destructive">{tagError}</p>}
         <div className="mt-0.5 flex items-center gap-1">
           <CellInput
             value={data.manufacturer}

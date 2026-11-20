@@ -100,12 +100,12 @@ server.registerTool(
   {
     title: "Connect two devices",
     description:
-      "Draw a cable from one device's output to another device's input. Ports are matched by their label; omit them to use the first available.",
+      "Draw a cable from one device's output to another device's input. Prefer stable device and port IDs from list_devices. Unique tags, names and port labels also work. Omit a port to use the first available.",
     inputSchema: {
-      from: z.string().describe("Source device tag or name"),
-      fromPort: z.string().optional().describe("Output port label"),
-      to: z.string().describe("Target device tag or name"),
-      toPort: z.string().optional().describe("Input port label"),
+      from: z.string().describe("Source device ID, unique tag or unique name"),
+      fromPort: z.string().optional().describe("Output port ID or unique label"),
+      to: z.string().describe("Target device ID, unique tag or unique name"),
+      toPort: z.string().optional().describe("Input port ID or unique label"),
       label: z.string().optional().describe('Cable ID, e.g. "A-101"'),
     },
   },
@@ -121,7 +121,7 @@ server.registerTool(
   {
     title: "Delete a device",
     description: "Remove a device and every cable attached to it.",
-    inputSchema: { tag: z.string().describe("Device tag or name") },
+    inputSchema: { tag: z.string().describe("Device ID, unique tag or unique name") },
   },
   async ({ tag }) => report(await call({ type: "delete_device", tag }), `Deleted ${tag}`),
 );
@@ -180,6 +180,7 @@ server.registerTool(
           z.object({
             label: z.string(),
             tag: z.string().optional().describe("Matching device tag on the schematic"),
+            deviceId: z.string().optional().describe("Stable schematic device ID from list_devices"),
             u: z.number().optional().describe("Lowest rack unit occupied; 1 is the bottom"),
             height: z.number().optional().describe("Height in rack units; defaults to 1"),
             color: z.string().optional(),
@@ -245,6 +246,7 @@ server.registerTool(
       kind: itemKind,
       label: z.string().describe('Human name, e.g. "Left Surround"'),
       tag: z.string().optional().describe("Matching device tag on the schematic"),
+      deviceId: z.string().optional().describe("Stable schematic device ID from list_devices"),
       position: xyz,
       size: z
         .object({ w: z.number().optional(), h: z.number().optional(), d: z.number().optional() })
@@ -287,6 +289,7 @@ server.registerTool(
           kind: itemKind,
           label: z.string(),
           tag: z.string().optional(),
+          deviceId: z.string().optional(),
           position: xyz,
           size: z.object({ w: z.number().positive().optional(), h: z.number().positive().optional(), d: z.number().positive().optional() }).optional(),
           rotation: z.number().optional(),
