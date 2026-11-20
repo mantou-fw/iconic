@@ -1,105 +1,120 @@
-import { useCallback, useRef, useState } from "react";
 import type { Edge, Node } from "@xyflow/react";
 
-export type Snapshot = { nodes: Node[]; edges: Edge[] };
+import type { ToolSettings } from "./db";
+import type { RoomItem, RoomSpec } from "./room";
+import type { SignalDef } from "./signal-types";
+
+export type SchematicSnapshot = {
+  nodes: Node[];
+  edges: Edge[];
+  signals: SignalDef[];
+  grid: Pick<ToolSettings, "snapToGrid" | "gridSize">;
+};
+
+export type RoomSnapshot = { room: RoomSpec; items: RoomItem[] };
+export type Snapshot = { schematic: SchematicSnapshot; room: RoomSnapshot };
 
 const LIMIT = 60;
 
-/**
- * Undo/redo over whole-graph snapshots.
- *
- * Snapshots are cheap here (a few hundred nodes at most) and far more robust
- * than replaying inverse operations, which would have to understand every
- * command, parenting change and auto-route in the app.
- *
- * `record` is called after a change has settled; `suspended` guards the window
- * while an undo is being applied so restoring state never records itself.
- */
-export function useHistory() {
-  const past = useRef<Snapshot[]>([]);
-  const future = useRef<Snapshot[]>([]);
-  const suspended = useRef(false);
-  const [, bump] = useState(0);
-
-  const clone = (s: Snapshot): Snapshot => ({
-    nodes: s.nodes.map((n) => ({ ...n, data: { ...n.data } })),
-    edges: s.edges.map((e) => ({ ...e, data: { ...e.data } })),
-  });
-
-  const record = useCallback((snapshot: Snapshot) => {
-    if (suspended.current) return;
-    const last = past.current[past.current.length - 1];
-    // Selection-only changes are not worth an undo step.
-    if (last && sameShape(last, snapshot)) return;
-
-    past.current.push(clone(snapshot));
-    if (past.current.length > LIMIT) past.current.shift();
-    future.current = [];
-    bump((n) => n + 1);
-  }, []);
-
-  /** Runs `apply` without the resulting change being recorded. */
-  const withoutRecording = useCallback((apply: () => void) => {
-    suspended.current = true;
-    apply();
-    // Release after the state settles, past the debounce that calls record().
-    setTimeout(() => {
-      suspended.current = false;
-    }, 250);
-  }, []);
-
-  const undo = useCallback(
-    (current: Snapshot, apply: (s: Snapshot) => void) => {
-      // The tail of `past` is the current state, so step back past it.
-      if (past.current.length < 2) return false;
-      const popped = past.current.pop()!;
-      future.current.push(popped);
-      const target = past.current[past.current.length - 1]!;
-      withoutRecording(() => apply(clone(target)));
-      bump((n) => n + 1);
-      return true;
-    },
-    [withoutRecording],
-  );
-
-  const redo = useCallback(
-    (apply: (s: Snapshot) => void) => {
-      const next = future.current.pop();
-      if (!next) return false;
-      past.current.push(next);
-      withoutRecording(() => apply(clone(next)));
-      bump((n) => n + 1);
-      return true;
-    },
-    [withoutRecording],
-  );
+function historyFor<T>(equals: (a: T, b: T) => boolean) {
+  const past: T[] = [];
+  const future: T[] = [];
+  let current: T | undefined;
+  let lastGroup: symbol | undefined;
 
   return {
-    record,
-    undo,
-    redo,
-    canUndo: past.current.length > 1,
-    canRedo: future.current.length > 0,
+    record(next: T, group?: symbol) {
+      if (!current) {
+        current = next;
+        return false;
+      }
+      if (equals(current, next)) return false;
+
+      if (!group || group !== lastGroup) {
+        past.push(current);
+        if (past.length > LIMIT) past.shift();
+      }
+      current = next;
+      lastGroup = group;
+      return true;
+    },
+    clearRedo() {
+      future.length = 0;
+    },
+    undo() {
+      const previous = past.pop();
+      if (!previous || !current) return undefined;
+      future.push(current);
+      current = previous;
+      lastGroup = undefined;
+      return previous;
+    },
+    redo() {
+      const next = future.pop();
+      if (!next || !current) return undefined;
+      past.push(current);
+      current = next;
+      lastGroup = undefined;
+      return next;
+    },
   };
 }
 
-/** Compares everything an undo should care about, ignoring selection. */
-function sameShape(a: Snapshot, b: Snapshot): boolean {
-  if (a.nodes.length !== b.nodes.length || a.edges.length !== b.edges.length) {
-    return false;
+const sameJson = (a: unknown, b: unknown) => a === b || JSON.stringify(a) === JSON.stringify(b);
+
+function sameNodes(a: Node[], b: Node[]) {
+  return a === b || (a.length === b.length && a.every((node, i) => {
+    const other = b[i]!;
+    if (node === other) return true;
+    const { autoFocus: _a, ...data } = node.data;
+    const { autoFocus: _b, ...otherData } = other.data;
+    return node.id === other.id && node.type === other.type && node.parentId === other.parentId
+      && node.position.x === other.position.x && node.position.y === other.position.y
+      && node.width === other.width && node.height === other.height
+      && (node.data === other.data || sameJson(data, otherData));
+  }));
+}
+
+function sameEdges(a: Edge[], b: Edge[]) {
+  return a === b || (a.length === b.length && a.every((edge, i) => {
+    const other = b[i]!;
+    return edge === other || (
+      edge.id === other.id && edge.type === other.type
+      && edge.source === other.source && edge.target === other.target
+      && edge.sourceHandle === other.sourceHandle && edge.targetHandle === other.targetHandle
+      && sameJson(edge.data, other.data)
+    );
+  }));
+}
+
+/** Keep each surface's history with the mounted project, outside viewport and selection state. */
+export function createDocumentHistory() {
+  const schematic = historyFor<SchematicSnapshot>((a, b) =>
+    sameNodes(a.nodes, b.nodes) && sameEdges(a.edges, b.edges)
+      && sameJson(a.signals, b.signals) && sameJson(a.grid, b.grid),
+  );
+  const room = historyFor<RoomSnapshot>((a, b) => sameJson(a.room, b.room) && sameJson(a.items, b.items));
+
+  function record(snapshot: Snapshot, group?: symbol) {
+    const changedDrawing = schematic.record(snapshot.schematic, group);
+    const changedRoom = room.record(snapshot.room, group);
+    if (changedDrawing || changedRoom) {
+      schematic.clearRedo();
+      room.clearRedo();
+    }
   }
-  const key = (s: Snapshot) =>
-    JSON.stringify({
-      n: s.nodes.map((n) => [
-        n.id,
-        n.parentId ?? null,
-        Math.round(n.position.x),
-        Math.round(n.position.y),
-        n.width ?? null,
-        n.height ?? null,
-        n.data,
-      ]),
-      e: s.edges.map((e) => [e.id, e.source, e.target, e.sourceHandle, e.targetHandle, e.data]),
-    });
-  return key(a) === key(b);
+
+  function undo<S extends keyof Snapshot>(surface: S, snapshot: Snapshot, group?: symbol): Snapshot[S] | undefined;
+  function undo(surface: keyof Snapshot, snapshot: Snapshot, group?: symbol) {
+    record(snapshot, group);
+    return (surface === "room" ? room : schematic).undo();
+  }
+
+  function redo<S extends keyof Snapshot>(surface: S, snapshot: Snapshot, group?: symbol): Snapshot[S] | undefined;
+  function redo(surface: keyof Snapshot, snapshot: Snapshot, group?: symbol) {
+    record(snapshot, group);
+    return (surface === "room" ? room : schematic).redo();
+  }
+
+  return { record, undo, redo };
 }

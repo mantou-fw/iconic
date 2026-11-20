@@ -1,5 +1,5 @@
 import { useT } from "@/lib/i18n";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -69,7 +69,7 @@ import {
 } from "@/components/nodes/zone-node";
 import { assignLanes } from "@/lib/lanes";
 import { ObstaclesContext, type Rect } from "@/lib/obstacles";
-import { useHistory, type Snapshot } from "@/lib/history";
+import { createDocumentHistory, type Snapshot } from "@/lib/history";
 import { TitleBlock, makeTitleBlockData } from "@/components/nodes/title-block";
 import {
   RackNode,
@@ -720,7 +720,7 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
   );
 
   const onClear = useCallback(async () => {
-    if (!confirm(t("Clear the entire canvas? This cannot be undone."))) return;
+    if (!confirm(t("Clear the entire canvas?"))) return;
     setNodes([]);
     setEdges([]);
   }, [setNodes, setEdges, t]);
@@ -1235,31 +1235,64 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
 
   /* --------------------------------------------------------- history */
 
-  const history = useHistory();
+  const [history] = useState(createDocumentHistory);
+  const historyGroup = useRef<{ pointer?: symbol; typing?: symbol }>({});
+  const snapshot: Snapshot = useMemo(() => ({
+    schematic: { nodes, edges, signals, grid: { snapToGrid: settings.snapToGrid, gridSize: settings.gridSize } },
+    room: { room, items: roomItems },
+  }), [nodes, edges, signals, settings.snapToGrid, settings.gridSize, room, roomItems]);
 
-  // Record once a change has settled, on the same debounce as the autosave.
+  const editGroup = () => historyGroup.current.typing ?? historyGroup.current.pointer;
+  useLayoutEffect(() => {
+    if (loaded) history.record(snapshot, editGroup());
+  }, [history, loaded, snapshot]);
+
   useEffect(() => {
-    if (!loaded) return;
-    const t = setTimeout(() => history.record({ nodes, edges }), 350);
-    return () => clearTimeout(t);
-  }, [nodes, edges, loaded, history]);
+    let release: ReturnType<typeof setTimeout> | undefined;
+    const endGesture = () => {
+      const pointer = historyGroup.current.pointer;
+      clearTimeout(release);
+      // The final pointer event can finish the edit in the same React batch.
+      release = setTimeout(() => {
+        if (historyGroup.current.pointer === pointer) historyGroup.current.pointer = undefined;
+      }, 0);
+    };
+    window.addEventListener("pointerup", endGesture);
+    window.addEventListener("pointercancel", endGesture);
+    window.addEventListener("blur", endGesture);
+    return () => {
+      clearTimeout(release);
+      window.removeEventListener("pointerup", endGesture);
+      window.removeEventListener("pointercancel", endGesture);
+      window.removeEventListener("blur", endGesture);
+    };
+  }, []);
 
-  const applySnapshot = useCallback(
-    (snap: Snapshot) => {
-      setNodes(parentsFirst(snap.nodes));
-      setEdges(snap.edges);
-    },
-    [setNodes, setEdges],
-  );
-
-  const undo = useCallback(
-    () => history.undo({ nodes, edges }, applySnapshot),
-    [history, nodes, edges, applySnapshot],
-  );
-  const redo = useCallback(
-    () => history.redo(applySnapshot),
-    [history, applySnapshot],
-  );
+  const restoreHistory = (redo: boolean) => {
+    const step = redo ? history.redo : history.undo;
+    if (showRoom) {
+      const next = step("room", snapshot, editGroup());
+      if (!next) return;
+      setRoom(next.room);
+      setRoomItems(next.items);
+      return;
+    }
+    const next = step("schematic", snapshot, editGroup());
+    if (!next) return;
+    setNodes((current) => {
+      const selection = new Set(current.filter((node) => node.selected).map((node) => node.id));
+      return parentsFirst(next.nodes.map((node) => ({
+        ...node, selected: selection.has(node.id), dragging: false, resizing: false,
+        data: { ...node.data, autoFocus: undefined },
+      })));
+    });
+    setEdges((current) => {
+      const selection = new Set(current.filter((edge) => edge.selected).map((edge) => edge.id));
+      return next.edges.map((edge) => ({ ...edge, selected: selection.has(edge.id) }));
+    });
+    setSignals(next.signals);
+    setSettings((current) => ({ ...current, ...next.grid }));
+  };
 
   /* ------------------------------------------------------- duplicate */
 
@@ -1331,10 +1364,10 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
 
       if (mod && e.key.toLowerCase() === "z") {
         e.preventDefault();
-        if (e.shiftKey) redo();
-        else undo();
+        restoreHistory(e.shiftKey);
         return;
       }
+      if (showRoom) return;
       if (mod && e.key.toLowerCase() === "d") {
         e.preventDefault();
         duplicateSelection();
@@ -1383,7 +1416,7 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [blocked, loaded, changeTool, duplicateSelection, redo, setNodes, tool, undo]);
+  }, [blocked, loaded, changeTool, duplicateSelection, restoreHistory, setNodes, showRoom, tool]);
 
   /* -------------------------------------------------- properties panel */
 
@@ -1472,7 +1505,19 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
 
   return (
     <ThemeContext.Provider value={resolved}>
-      <div className="relative h-screen w-full" inert={blocked || !loaded}>
+      <div
+        className="relative h-screen w-full"
+        inert={blocked || !loaded}
+        onPointerDownCapture={() => { historyGroup.current.pointer = Symbol(); }}
+        onFocusCapture={(event) => {
+          const target = event.target;
+          if (target instanceof HTMLTextAreaElement || (target instanceof HTMLInputElement
+            && ["text", "number", "search", "tel", "url"].includes(target.type))) {
+            historyGroup.current.typing = Symbol();
+          }
+        }}
+        onBlurCapture={() => { historyGroup.current.typing = undefined; }}
+      >
         {/* Overlaid rather than swapped in: unmounting ReactFlow would empty its
           store, and both capture() and the AI commands read from it. */}
         {showRoom && (
@@ -1480,6 +1525,7 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
             room={room}
             items={roomItems}
             onClose={() => setShowRoom(false)}
+            onDeleteItem={(id) => setRoomItems((items) => items.filter((item) => item.id !== id))}
             onMoveItem={(id, change) =>
               setRoomItems((prev) =>
                 prev.map((i) => (i.id === id ? { ...i, ...change } : i)),
@@ -1567,6 +1613,7 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
 
         <div
           ref={paneRef}
+          inert={showRoom}
           className="relative h-full w-full"
           style={{ cursor: CURSORS[tool] }}
           onPointerDown={onPointerDown}
@@ -1601,8 +1648,9 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
                 zoomOnDoubleClick={isSelect}
                 // Shift adds to the selection. Dragging the pane already box-selects
                 // via selectionOnDrag, so Shift is deliberately not bound to that too.
-                multiSelectionKeyCode="Shift"
-                deleteKeyCode={["Backspace", "Delete"]}
+                multiSelectionKeyCode={showRoom ? null : "Shift"}
+                selectionKeyCode={showRoom ? null : "Shift"}
+                deleteKeyCode={showRoom ? null : ["Backspace", "Delete"]}
                 snapToGrid={settings.snapToGrid}
                 snapGrid={[settings.gridSize, settings.gridSize]}
                 connectionRadius={24}
