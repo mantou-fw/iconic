@@ -138,6 +138,9 @@ export function ArrowEdge({
           </button>
         )}
         <div
+          data-export-edge-label={id}
+          data-export-x={labelX}
+          data-export-y={labelY}
           className="nodrag nopan absolute"
           style={{
             transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,

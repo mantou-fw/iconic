@@ -207,3 +207,37 @@ test("keeps inline image data and rejects other image sources and invalid colors
   expect(html).not.toContain("url(#other)");
   expect(html).not.toContain("example.invalid");
 });
+
+test("keeps persisted drawing objects and rendered routes, labels, and arrow directions", () => {
+  const outgoingPath = "M 268 73 L 350 73 L 350 -700 L 550 -700 L 550 73 L 600 73";
+  const path = build({
+    nodes: [
+      ...nodes,
+      { id: "z1", type: "zone", position: { x: 0, y: 300 }, data: { name: "Rack zone" } },
+      { id: "r1", type: "rack", position: { x: 30, y: 330 }, parentId: "z1",
+        data: { tag: "RACK-01", name: "AV rack", units: 5, items: [{ u: 2, height: 1, label: "Rack Switch" }] } },
+      { id: "s1", type: "shape", position: { x: 800, y: 500 }, data: { shape: "diamond", text: "Decision" } },
+      { id: "i1", type: "icon-text", position: { x: 1000, y: 500 }, data: { icon: "mdi:laptop", label: "Meeting console" } },
+      { id: "m1", type: "memo", position: { x: 50, y: 800 }, data: { text: "Memo annotation" } },
+      { id: "txt1", type: "text", position: { x: 50, y: 900 }, data: { text: "Free text" } },
+      { id: "pen1", type: "drawing", position: { x: 150, y: 900 }, data: { points: [{ x: 0, y: 0 }, { x: 5, y: 5 }] } },
+      { id: "img1", type: "image", position: { x: 250, y: 900 }, data: { src: "data:image/png;base64,AQID" } },
+    ],
+    edges: [
+      ...edges,
+      { id: "a1", source: "s1", target: "i1", sourceHandle: "right-source", targetHandle: "left-target",
+        type: "arrow", data: { direction: "both", label: "Control link" } },
+    ],
+    renderedEdges: new Map([["e1", {
+      path: outgoingPath,
+      label: { x: 450, y: -713 },
+      bounds: { x: 268, y: -700, width: 332, height: 773 },
+    }]]),
+  });
+  for (const text of ["Rack zone", "Rack Switch", "Decision", "Meeting console", "Memo annotation",
+    "Free text", "L 155 905", "data:image/png;base64,AQID", 'data-id="tb"', "Control link", outgoingPath]) {
+    expect(path).toContain(text);
+  }
+  expect(path).toContain('marker-start="url(#arrow-generic)" marker-end="url(#arrow-generic)"');
+  expect(path).toContain('id="schematic" viewBox="-60 -781 ');
+});

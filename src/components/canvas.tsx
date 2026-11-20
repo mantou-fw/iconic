@@ -85,6 +85,7 @@ import {
   type DistributeMode,
 } from "@/lib/align";
 import { exportDrawing, type ImageFormat } from "@/lib/export-image";
+import { readRenderedEdges } from "@/lib/export-geometry";
 import { buildViewerHtml } from "@/lib/export-html";
 import { RoomView } from "@/components/room-view";
 import {
@@ -830,7 +831,7 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
   const onExportImage = useCallback(
     async (format: ImageFormat) => {
       try {
-        await exportDrawing({ nodes: rf.getNodes(), format });
+        await exportDrawing({ nodes: rf.getNodes(), zoom: rf.getZoom(), format });
       } catch (err) {
         alert(err instanceof Error ? err.message : t("Export failed."));
       }
@@ -839,20 +840,25 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
   );
 
   const onExportHtml = useCallback(() => {
-    const all = rf.getNodes();
-    const html = buildViewerHtml({
-      nodes: all,
-      edges: rf.getEdges(),
-      room,
-      roomItems,
-      signals,
-      absolute: (n) => absolutePosition(n, all),
-    });
-    downloadBlob(
-      new Blob([html], { type: "text/html;charset=utf-8" }),
-      `av-schematic-viewer-${stamp()}.html`,
-    );
-  }, [rf, room, roomItems, signals]);
+    try {
+      const all = rf.getNodes();
+      const html = buildViewerHtml({
+        nodes: all,
+        edges: rf.getEdges(),
+        renderedEdges: readRenderedEdges(document.querySelector(".react-flow__viewport")),
+        room,
+        roomItems,
+        signals,
+        absolute: (n) => absolutePosition(n, all),
+      });
+      downloadBlob(
+        new Blob([html], { type: "text/html;charset=utf-8" }),
+        `av-schematic-viewer-${stamp()}.html`,
+      );
+    } catch (err) {
+      alert(err instanceof Error ? err.message : t("Export failed."));
+    }
+  }, [rf, room, roomItems, signals, t]);
 
   const toggleSnap = useCallback(
     () => setSettings((s) => ({ ...s, snapToGrid: !s.snapToGrid })),
