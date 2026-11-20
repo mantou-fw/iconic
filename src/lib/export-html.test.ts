@@ -165,3 +165,45 @@ test.each(["en", "zh-Hant", "ja"] as const)("exports a working localized viewer 
     expect(() => new Function(script!)).not.toThrow();
   } finally { setLocale("en"); }
 });
+
+test("keeps legend content literal and gives SVG markers internal IDs", () => {
+  const html = build({
+    signals: [{
+      key: 'AC & "custom"',
+      label: '影音 & <span>確認</span> "音声"',
+      short: "AV",
+      color: "#0088cc; color: red",
+    }],
+  });
+  expect(html).toContain("影音 &amp; &lt;span&gt;確認&lt;/span&gt; &quot;音声&quot;");
+  expect(html).toContain('data-signal="AC &amp; &quot;custom&quot;"');
+  expect(html).toContain('id="arrow-0"');
+  expect(html).toContain('marker-end="url(#arrow-0)"');
+  expect(html).toContain('style="background:#64748b"');
+  expect(html).not.toContain("#0088cc; color: red");
+});
+
+test("keeps inline image data and rejects other image sources and invalid colors", () => {
+  const image = (id: string, src: string): Node => ({
+    id, type: "image", position: { x: 0, y: 0 }, data: { src },
+  });
+  const html = build({
+    nodes: [
+      ...nodes,
+      image("inline", "data:image/png;base64,AQID"),
+      image("external", "https://example.invalid/image.png"),
+      image("document", "data:text/html;base64,AQID"),
+      { id: "zone", type: "zone", position: { x: 0, y: 0 }, data: {
+        name: "映像 <グループ>", color: "url(#other)",
+      } },
+    ],
+    roomItems: [{ ...items[0]!, color: "url(#other)" }],
+  });
+  expect(html.match(/<image\b/g)).toHaveLength(1);
+  expect(html).toContain('href="data:image/png;base64,AQID"');
+  expect(html).toContain("映像 &lt;グループ&gt;");
+  expect(html).toContain('fill="#0071e3"');
+  expect(html).toContain('fill="#94a3b8"');
+  expect(html).not.toContain("url(#other)");
+  expect(html).not.toContain("example.invalid");
+});
