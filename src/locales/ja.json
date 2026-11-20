@@ -142,6 +142,7 @@
   "Image could not be embedded.": "画像を埋め込めませんでした。",
   "Unsupported drawing object.": "未対応の図面オブジェクトです。",
   "Some connections could not be drawn. Check their endpoints in the project.": "一部の接続を描画できませんでした。プロジェクトで接続先を確認してください。",
+  "Remove room item": "ルーム内の物品を削除",
   "Export failed.": "出力に失敗しました。",
   "That file isn't valid JSON.": "有効な JSON ファイルではありません。",
   "That JSON isn't an AV schematic project file.": "AV 図面プロジェクトの JSON ファイルではありません。",

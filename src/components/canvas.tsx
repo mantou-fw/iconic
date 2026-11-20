@@ -1525,6 +1525,7 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
             room={room}
             items={roomItems}
             onClose={() => setShowRoom(false)}
+            onDeleteItem={(id) => setRoomItems((items) => items.filter((item) => item.id !== id))}
             onMoveItem={(id, change) =>
               setRoomItems((prev) =>
                 prev.map((i) => (i.id === id ? { ...i, ...change } : i)),

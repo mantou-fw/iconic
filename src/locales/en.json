@@ -142,6 +142,7 @@
   "Image could not be embedded.": "Image could not be embedded.",
   "Unsupported drawing object.": "Unsupported drawing object.",
   "Some connections could not be drawn. Check their endpoints in the project.": "Some connections could not be drawn. Check their endpoints in the project.",
+  "Remove room item": "Remove room item",
   "Export failed.": "Export failed.",
   "That file isn't valid JSON.": "That file isn't valid JSON.",
   "That JSON isn't an AV schematic project file.": "That JSON isn't an AV schematic project file.",
