@@ -125,6 +125,8 @@ npm run typecheck
 npm test
 ```
 
+每次開啟或更新 Pull Request，以及推送到 `main` 時，[CI](.github/workflows/ci.yml) 都會使用 Node.js 24 執行檢查。要在本機重現，先執行 `npm ci`，再執行 `npm run typecheck`、`npm test` 與 `npm run build`。
+
 可用 `PORT` 指定其他開發連接埠。瀏覽器、桌面開發版與正式桌面版使用獨立的 IndexedDB 儲存空間，可透過專案 JSON 匯入／匯出轉移圖紙。iconic 桌面版首次啟動時會複製舊版 app 的資料一次，並保留原始資料。資料庫名稱（`av-schematic-db`）及 JSON 格式（`av-schematic`）保持相容。
 
 ## 建置與發佈
