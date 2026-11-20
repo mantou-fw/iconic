@@ -102,8 +102,8 @@ export async function exportDrawing({
     height: `${height}px`,
     transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
   };
+  const backgroundColor = sheetColor(transparent);
   const shared = {
-    backgroundColor: sheetColor(transparent),
     width,
     height,
     pixelRatio,
@@ -119,11 +119,23 @@ export async function exportDrawing({
 
   if (format === "svg") {
     const dataUrl = await toSvg(element, shared);
-    downloadBlob(await (await fetch(dataUrl)).blob(), `${name}.svg`);
+    const xml = await (await fetch(dataUrl)).text();
+    if (!backgroundColor) {
+      downloadBlob(new Blob([xml], { type: "image/svg+xml" }), `${name}.svg`);
+      return;
+    }
+    // Put the background on the sheet rather than on the translated viewport.
+    const svg = new DOMParser().parseFromString(xml, "image/svg+xml").documentElement;
+    const rect = svg.ownerDocument.createElementNS("http://www.w3.org/2000/svg", "rect");
+    rect.setAttribute("width", "100%");
+    rect.setAttribute("height", "100%");
+    rect.setAttribute("fill", backgroundColor);
+    svg.prepend(rect);
+    downloadBlob(new Blob([new XMLSerializer().serializeToString(svg)], { type: "image/svg+xml" }), `${name}.svg`);
     return;
   }
 
-  const dataUrl = await toPng(element, shared);
+  const dataUrl = await toPng(element, { ...shared, backgroundColor });
 
   if (format === "png") {
     downloadBlob(await (await fetch(dataUrl)).blob(), `${name}.png`);
