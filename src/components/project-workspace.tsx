@@ -5,11 +5,15 @@ import { ProjectCatalog, ProjectSession, type ProjectEntry, type ProjectVersion 
 import { readProject, type ProjectFile } from '@/lib/project';
 import { blankProject } from '@/lib/canvas-project';
 import { useT } from '@/lib/i18n';
+import { downloadBlob } from '@/lib/schedules';
+
+type Recovery = { entry?: ProjectEntry; name: string; raw?: string; message: string };
 
 type OpenProject = { session: ProjectSession; initial: ProjectFile; generation: number };
 
 export function ProjectWorkspace() {
   const t = useT();
+  const [recovery, setRecovery] = useState<Recovery | null>(null);
   const [current, setCurrent] = useState<OpenProject | null>(null);
   const [catalog, setCatalog] = useState<ProjectCatalog | null>(null);
   const [entries, setEntries] = useState<ProjectEntry[]>([]);
@@ -32,14 +36,32 @@ export function ProjectWorkspace() {
     void (async () => {
       const nextCatalog = await ProjectCatalog.open();
       ownedCatalog = nextCatalog;
-      const session = await nextCatalog.initialize(readProject, t('Recovered drawing'));
-      openingSession = session;
-      const initial = await session.read();
-      if (disposed) { await session.close(); nextCatalog.close(); return; }
-      const next = { session, initial, generation: 0 };
-      active.current = next;
-      setCatalog(nextCatalog);
-      setCurrent(next);
+      const legacyName = t('Recovered drawing');
+      let legacyRaw: string | undefined;
+      try {
+        const session = await nextCatalog.initialize(async () => {
+          const project = await readProject();
+          legacyRaw = JSON.stringify(project);
+          return project;
+        }, legacyName);
+        openingSession = session;
+        const initial = await session.read();
+        if (disposed) { await session.close(); nextCatalog.close(); return; }
+        const next = { session, initial, generation: 0 };
+        active.current = next;
+        setCatalog(nextCatalog);
+        setCurrent(next);
+      } catch (cause) {
+        const raw = (await openingSession?.readRaw().catch(() => undefined)) ?? legacyRaw;
+        await openingSession?.close();
+        const entries = await nextCatalog.list();
+        const activeId = await nextCatalog.activeId();
+        const entry = openingSession?.entry ?? entries.find((item) => item.id === activeId);
+        if (disposed) { nextCatalog.close(); return; }
+        setCatalog(nextCatalog);
+        setEntries(entries);
+        setRecovery({ entry, name: entry?.name ?? legacyName, raw, message: cause instanceof Error ? cause.message : String(cause) });
+      }
     })().catch(async error => {
       await openingSession?.close();
       ownedCatalog?.close();
@@ -88,6 +110,7 @@ export function ProjectWorkspace() {
       active.current = next;
       handle.current = null;
       setCurrent(next);
+      setRecovery(null);
       setOpen(false);
       await previous?.session.close();
     } catch (error) { await nextSession.close(); throw error; }
@@ -107,6 +130,42 @@ export function ProjectWorkspace() {
     try { await createProject(project, name); }
     finally { transition.current = false; setBusy(false); }
   };
+
+  if (!current && recovery && catalog) return (
+    <main className="grid min-h-screen place-content-center gap-4 p-8">
+      <h1 className="text-lg font-semibold">{t('The active project could not be opened.')}</h1>
+      <p>{recovery.name}</p>
+      <p className="max-w-xl text-sm text-muted-foreground" role="alert">{t(recovery.message)}</p>
+      <div className="flex flex-wrap gap-4">
+        {recovery.raw !== undefined && (
+          <button className="underline" onClick={() => {
+            const name = recovery.name.replace(/[^\p{L}\p{N} ._-]/gu, '_');
+            downloadBlob(new Blob([recovery.raw!], { type: 'application/json' }), `${name}-original.json`);
+          }}>{t('Export original project data')}</button>
+        )}
+        <button className="underline" disabled={busy}
+          onClick={() => void run(async () => switchTo(await catalog.create(t('Untitled project'), blankProject())))}>
+          {t('Create a blank project')}
+        </button>
+      </div>
+      {entries.some((entry) => entry.id !== recovery.entry?.id) && (
+        <section>
+          <h2 className="font-medium">{t('Open another project')}</h2>
+          <ul className="mt-1 grid gap-1">
+            {entries.filter((entry) => entry.id !== recovery.entry?.id).map((entry) => (
+              <li key={entry.id}>
+                <button className="underline" disabled={busy}
+                  onClick={() => void run(async () => switchTo(await ProjectSession.open(entry)))}>
+                  {entry.name}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {error && <p role="alert">{t(error)}</p>}
+    </main>
+  );
 
   if (!current) return (
     <main className="grid h-screen place-content-center gap-3 p-8">

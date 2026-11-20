@@ -10,24 +10,7 @@ import {
 } from "./db";
 import { DEFAULT_SIGNALS, type SignalDef } from "./signal-types";
 import type { RoomItem, RoomSpec } from './room';
-import { z } from 'zod';
-import { roomDimensionsSchema, roomItemSchema, provenanceSchema } from '../../shared/ai-imports.mjs';
-
-const savedRoom = roomDimensionsSchema.extend({
-  id: z.literal('room'),
-  name: z.string(),
-  imports: z.array(z.object({ importId: z.string(), dimensionBasis: z.enum(['measured', 'estimated']), provenance: provenanceSchema })).optional(),
-});
-// Saved manual edits predate the stricter AI import contract. Keep authored
-// strings intact and accept rotations beyond one turn when opening a project.
-const savedItem = roomItemSchema.extend({
-  id: z.string(), importId: z.string().optional(), color: z.string().optional(),
-  label: z.string(), tag: z.string().optional(),
-  deviceId: z.string().optional(), linkStatus: z.enum(["needs-review", "unlinked"]).optional(),
-  note: z.string().optional(),
-  rotation: z.number().finite(),
-  size: z.object({ w: z.number().finite().positive(), h: z.number().finite().positive(), d: z.number().finite().positive() }),
-});
+import { projectSchema, validateGraph } from "./project-validation";
 
 export const PROJECT_VERSION = 1 as const;
 
@@ -86,25 +69,27 @@ export function parseProject(text: string): ProjectFile {
   if (p?.kind !== "av-schematic") {
     throw new Error(t("That JSON isn't an AV schematic project file."));
   }
-  if (!Array.isArray(p.nodes) || !Array.isArray(p.edges)) {
-    throw new Error(t("The project file is missing its nodes or edges."));
+  if (p.version !== undefined && p.version !== PROJECT_VERSION) {
+    throw new Error(`${t("Unsupported project format version.")} ${String(p.version)}`);
   }
-  const room = p.room === undefined ? undefined : savedRoom.safeParse(p.room);
-  const items = p.roomItems === undefined ? undefined : z.array(savedItem).safeParse(p.roomItems);
-  if ((room && !room.success) || (items && !items.success)) throw new Error(t('Invalid room data in project.'));
-  const viewport = z.object({ id: z.literal('viewport'), x: z.number().finite(), y: z.number().finite(), zoom: z.number().finite().positive() }).safeParse(p.viewport);
+  const result = projectSchema.safeParse(raw);
+  if (!result.success) {
+    const issue = result.error.issues[0]!;
+    const path = issue.path.reduce<string>((label, field) =>
+      typeof field === "number" ? `${label}[${field}]` : `${label ? label + "." : ""}${String(field)}`, "");
+    throw new Error(`${t("Invalid project field")} ${path}. ${issue.message}`);
+  }
+  const checked = result.data;
+  validateGraph(checked);
   return {
+    ...checked,
     kind: "av-schematic",
+    // Early exports without a version marker used the same version-1 fields.
     version: PROJECT_VERSION,
-    savedAt: p.savedAt ?? new Date().toISOString(),
-    nodes: p.nodes,
-    edges: p.edges,
-    drawings: Array.isArray(p.drawings) ? p.drawings : [],
-    settings: { ...DEFAULT_TOOL_SETTINGS, ...(p.settings ?? {}) },
-    signals: Array.isArray(p.signals) && p.signals.length > 0 ? p.signals : DEFAULT_SIGNALS,
-    ...(room?.success ? { room: room.data } : {}),
-    ...(items?.success ? { roomItems: items.data } : {}),
-    ...(viewport.success ? { viewport: viewport.data } : {}),
+    savedAt: checked.savedAt ?? new Date().toISOString(),
+    settings: { ...DEFAULT_TOOL_SETTINGS, ...checked.settings },
+    drawings: checked.drawings ?? [],
+    signals: checked.signals?.length ? checked.signals : DEFAULT_SIGNALS,
   };
 }
 
