@@ -69,6 +69,9 @@ import {
 } from "@/components/nodes/zone-node";
 import { assignLanes } from "@/lib/lanes";
 import { ObstaclesContext, type Rect } from "@/lib/obstacles";
+import { DeviceLinkReview, type PendingLink } from "@/components/device-link-review";
+import { DeviceIdentityContext } from "@/components/device-identity-context";
+import { allocateTag, deviceIdentities, displayDeviceTag, deviceLinkNeedsReview, matchDevice, migrateDeviceLink, tagKey } from "@/lib/device-identity";
 import { createDocumentHistory, type Snapshot } from "@/lib/history";
 import { TitleBlock, makeTitleBlockData } from "@/components/nodes/title-block";
 import {
@@ -223,6 +226,7 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
   const [room, setRoom] = useState<RoomSpec>(DEFAULT_ROOM);
   const [roomItems, setRoomItems] = useState<RoomItem[]>([]);
   const [showRoom, setShowRoom] = useState(false);
+  const [reviewLinks, setReviewLinks] = useState(false);
   const { theme, resolved, setTheme } = useTheme();
 
   const rf = useReactFlow();
@@ -238,6 +242,58 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
   /** Mirror of the node state, so capture() can sanity-check the flow store. */
   const nodesRef = useRef<Node[]>([]);
 
+  const identities = useMemo(() => deviceIdentities(nodes), [nodes]);
+  const tags = useMemo(() => new Map(identities.map((device) => [device.id, device.tag])), [identities]);
+  const shownRoomItems = useMemo(() => roomItems.map((item) => {
+    const tag = displayDeviceTag(item, tags);
+    return tag === item.tag ? item : { ...item, tag };
+  }), [roomItems, tags]);
+  const duplicateDevices = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const device of identities) {
+      const tag = tagKey(device.tag);
+      counts.set(tag, (counts.get(tag) ?? 0) + 1);
+    }
+    return identities.filter((device) => (counts.get(tagKey(device.tag)) ?? 0) > 1);
+  }, [identities]);
+  const pendingLinks = useMemo<PendingLink[]>(() => [
+    ...roomItems.filter((item) => deviceLinkNeedsReview(item, tags)).map((item) => ({
+      kind: "room" as const, itemId: item.id, label: item.label, item,
+    })),
+    ...nodes.flatMap((node) => {
+      if (node.type !== "rack" || !Array.isArray(node.data.items)) return [];
+      return (node.data.items as RackItem[]).filter((item) => deviceLinkNeedsReview(item, tags)).map((item) => ({
+        kind: "rack" as const, itemId: item.id, rackId: node.id, label: item.label, item,
+      }));
+    }),
+  ], [roomItems, nodes, tags]);
+
+  const renameDevice = useCallback((id: string, draft: string) => {
+    const tag = tagKey(draft);
+    const devices = deviceIdentities(rf.getNodes());
+    const previous = devices.find((device) => device.id === id)?.tag;
+    if (previous === draft) return;
+    if (!tag) return t("Enter a device tag.");
+    if (devices.some((device) => device.id !== id && tagKey(device.tag) === tag)) {
+      return t("That device tag is already in use.");
+    }
+    setNodes((current) => current.map((node) => node.id === id ? { ...node, data: { ...node.data, tag } } : node));
+  }, [rf, setNodes, t]);
+
+  const resolvePending = (link: PendingLink, deviceId: string | undefined) => {
+    if (deviceId !== undefined && !tags.has(deviceId)) return;
+    const patch = { deviceId, linkStatus: deviceId ? undefined : "unlinked" as const };
+    if (link.kind === "room") {
+      setRoomItems((items) => items.map((item) => item.id === link.itemId ? { ...item, ...patch } : item));
+    } else {
+      setNodes((current) => current.map((node) => node.id === link.rackId ? {
+        ...node, data: { ...node.data, items: (node.data.items as RackItem[]).map((item) =>
+          item.id === link.itemId ? { ...item, ...patch } : item,
+        ) },
+      } : node));
+    }
+  };
+
   /* ---------------------------------------------------------------- load */
 
   const loadInitialProject = useCallback(() => {
@@ -247,7 +303,6 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
       const dbSignals = { items: initial.signals };
 
       setRoom(dbRoom ?? DEFAULT_ROOM);
-      setRoomItems(dbItems);
       const currentSignals =
         dbSignals?.items && dbSignals.items.length > 0
           ? dbSignals.items
@@ -284,7 +339,12 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
         };
       });
 
-      const allNodes = parentsFirst([...flowNodes, ...drawNodes]);
+      const identities = deviceIdentities(flowNodes);
+      const allNodes = parentsFirst([...flowNodes, ...drawNodes].map((node) => {
+        if (node.type !== "rack" || !Array.isArray(node.data.items)) return node;
+        return { ...node, data: { ...node.data, items: node.data.items.map((item: RackItem) => migrateDeviceLink(item, identities)) } };
+      }));
+      setRoomItems(dbItems.map((item) => migrateDeviceLink(item, identities)));
       setNodes(allNodes);
       setEdges(
         dbEdges.map((e) =>
@@ -503,7 +563,11 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
               }
             : { ...base, type: "database", data: makeDeviceData() };
 
-      setNodes((nds) => nds.concat(node));
+      setNodes((nds) => {
+        if (node.type !== "database") return nds.concat(node);
+        const used = new Set(deviceIdentities(nds).map((device) => tagKey(device.tag)));
+        return nds.concat({ ...node, data: { ...node.data, tag: allocateTag(used) } });
+      });
       setTool("select");
     },
     [setNodes, settings],
@@ -847,7 +911,7 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
         edges: rf.getEdges(),
         renderedEdges: readRenderedEdges(document.querySelector(".react-flow__viewport")),
         room,
-        roomItems,
+        roomItems: shownRoomItems,
         signals,
         absolute: (n) => absolutePosition(n, all),
       });
@@ -858,7 +922,7 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
     } catch (err) {
       alert(err instanceof Error ? err.message : t("Export failed."));
     }
-  }, [rf, room, roomItems, signals, t]);
+  }, [rf, room, shownRoomItems, signals, t]);
 
   const toggleSnap = useCallback(
     () => setSettings((s) => ({ ...s, snapToGrid: !s.snapToGrid })),
@@ -885,20 +949,38 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
         message,
       });
 
-      if (!loaded || (blocked && !['get_state', 'get_room'].includes(cmd.type))) {
+      if (!loaded || ((blocked || reviewLinks) && !['get_state', 'get_room'].includes(cmd.type))) {
         return fail(cmd.type, 'Project is loading or its version manager is open. Retry after it closes.');
       }
       const current = rf.getNodes();
       const devices = current.filter((n) => n.type === "database");
       const dataOf = (n: Node) => n.data as unknown as AVDeviceData;
-      const byTag = (tag: string) =>
-        devices.find((n) => {
-          const d = dataOf(n);
-          return (
-            d.tag?.toLowerCase() === tag.toLowerCase() ||
-            d.name?.toLowerCase() === tag.toLowerCase()
-          );
-        });
+      const identities = deviceIdentities(devices);
+      const requireDevice = (reference: string) => {
+        const matches = matchDevice(identities, reference);
+        if (matches.length === 0) {
+          throw new Error(`${t("Device not found.")} ${reference}`);
+        }
+        if (matches.length > 1) {
+          throw new Error(`${t("Device reference is ambiguous. Use the device ID from the device list.")} ${matches.map((device) => device.id).join(", ")}`);
+        }
+        return devices.find((device) => device.id === matches[0]!.id)!;
+      };
+
+      const resolveLink = (tag?: string, deviceId?: string) => {
+        if (deviceId !== undefined) {
+          if (!identities.some((device) => device.id === deviceId)) {
+            throw new Error(`${t("Device not found.")} ${deviceId}`);
+          }
+          return { tag, deviceId };
+        }
+        if (!tag) return {};
+        const matches = matchDevice(identities, tag, true);
+        if (matches.length > 1) {
+          throw new Error(`${t("Device reference is ambiguous. Use the device ID from the device list.")} ${matches.map((device) => device.id).join(", ")}`);
+        }
+        return { tag, deviceId: matches[0]?.id, linkStatus: matches.length ? undefined : "unlinked" as const };
+      };
 
       const snapshot = (): AIReply => {
         const map = new Map(devices.map((n) => [n.id, dataOf(n)]));
@@ -907,6 +989,7 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
           devices: devices.map((n) => {
             const d = dataOf(n);
             return {
+              id: n.id,
               tag: d.tag,
               name: d.name,
               manufacturer: d.manufacturer,
@@ -916,6 +999,7 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
               rackUnits: d.rackUnits,
               position: n.position,
               ports: (d.ports ?? []).map((p) => ({
+                id: p.id,
                 label: p.label,
                 dir: p.dir,
                 signal: p.signal,
@@ -927,7 +1011,12 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
             const from = map.get(e.source);
             const to = map.get(e.target);
             return {
+              id: e.id,
               label: ((e.data as any)?.label as string) ?? "",
+              sourceId: e.source,
+              targetId: e.target,
+              sourcePortId: e.sourceHandle,
+              targetPortId: e.targetHandle,
               from: from?.tag,
               fromPort: from?.ports?.find((p) => p.id === e.sourceHandle)
                 ?.label,
@@ -968,7 +1057,7 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
         }
 
         case "import_room_layout": {
-          const next = prepareRoomImport(cmd, room, roomItems, devices.map(n => dataOf(n).tag), () => `r${nextId()}`);
+          const next = prepareRoomImport(cmd, room, roomItems, identities, () => `r${nextId()}`);
           if (!next.duplicate) {
             setRoom(next.room);
             setRoomItems(next.items);
@@ -982,7 +1071,7 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
               id: `r${nextId()}`,
               kind: cmd.kind,
               label: cmd.label,
-              tag: cmd.tag,
+              ...resolveLink(cmd.tag, cmd.deviceId),
               position: cmd.position as RoomItem["position"] | undefined,
               size: cmd.size as RoomItem["size"] | undefined,
               rotation: cmd.rotation,
@@ -1003,7 +1092,7 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
         case "get_room":
           return {
             type: "state",
-            devices: [{ room, items: roomItems }],
+            devices: [{ room, items: shownRoomItems }],
             cables: [],
           };
 
@@ -1018,7 +1107,7 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
             return {
               ...makeRackItem(u, height),
               label: e.label,
-              tag: e.tag,
+              ...resolveLink(e.tag, e.deviceId),
               color: e.color ?? "#64748b",
             };
           });
@@ -1084,13 +1173,10 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
 
         case "import_product":
         case "add_device": {
-          if (cmd.type === "import_product") {
-            if (devices.some(n => dataOf(n).tag.toLowerCase() === cmd.tag.toLowerCase())) {
-              return fail(cmd.type, `Tag "${cmd.tag}" already exists. Read list_devices before retrying or choose a unique tag.`);
-            }
-          }
-          const data = makeDeviceData();
-          if (cmd.tag) data.tag = cmd.tag.toUpperCase();
+          const used = new Set(identities.map((device) => tagKey(device.tag)));
+          if (cmd.tag !== undefined && !tagKey(cmd.tag)) return fail(cmd.type, t("Enter a device tag."));
+          if (cmd.tag && used.has(tagKey(cmd.tag))) return fail(cmd.type, t("That device tag is already in use."));
+          const data = { ...makeDeviceData(), tag: allocateTag(used, cmd.tag) };
           if (cmd.name) data.name = cmd.name;
           data.manufacturer = cmd.manufacturer ?? "";
           data.model = cmd.model ?? "";
@@ -1140,7 +1226,7 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
               }),
             ),
           );
-          return ok(cmd.type, { tag: data.tag, zone: cmd.zone });
+          return ok(cmd.type, { deviceId: id, tag: data.tag, zone: cmd.zone });
         }
 
         case "add_text":
@@ -1166,19 +1252,19 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
         }
 
         case "connect": {
-          const from = byTag(cmd.from);
-          const to = byTag(cmd.to);
-          if (!from) return fail("connect", `No device tagged "${cmd.from}"`);
-          if (!to) return fail("connect", `No device tagged "${cmd.to}"`);
+          const from = requireDevice(cmd.from);
+          const to = requireDevice(cmd.to);
 
           const pick = (node: Node, dir: "in" | "out", want?: string) => {
             const ports = (dataOf(node).ports ?? []).filter(
               (p) => p.dir === dir,
             );
             if (!want) return ports[0];
-            return ports.find(
-              (p) => p.label.toLowerCase() === want.toLowerCase(),
-            );
+            const exact = ports.find((port) => port.id === want);
+            if (exact) return exact;
+            const matches = ports.filter((port) => tagKey(port.label) === tagKey(want));
+            if (matches.length > 1) throw new Error(`${t("Port label is ambiguous. Use the port ID from the device list.")} ${want}`);
+            return matches[0];
           };
           const sourcePort = pick(from, "out", cmd.fromPort);
           const targetPort = pick(to, "in", cmd.toPort);
@@ -1204,9 +1290,7 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
         }
 
         case "delete_device": {
-          const node = byTag(cmd.tag);
-          if (!node)
-            return fail("delete_device", `No device tagged "${cmd.tag}"`);
+          const node = requireDevice(cmd.tag);
           setNodes((nds) => nds.filter((n) => n.id !== node.id));
           setEdges((eds) =>
             eds.filter((e) => e.source !== node.id && e.target !== node.id),
@@ -1228,7 +1312,7 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
           return fail((cmd as { type: string }).type ?? "?", "Unknown command");
       }
     },
-    [rf, setNodes, setEdges, settings, room, roomItems, signals, loaded, blocked],
+    [rf, setNodes, setEdges, settings, room, roomItems, shownRoomItems, signals, loaded, blocked, reviewLinks, t],
   );
 
   const aiStatus = useAIBridge(runCommand);
@@ -1302,9 +1386,12 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
     if (picked.length === 0) return;
 
     const idMap = new Map<string, string>();
+    const usedTags = new Set(deviceIdentities(all).map((device) => tagKey(device.tag)));
     const copies = picked.map((n) => {
       const id = nextId();
       idMap.set(n.id, id);
+      const data = structuredClone(n.data);
+      if (n.type === "database") data.tag = allocateTag(usedTags, String(data.tag ?? ""));
       return {
         ...n,
         id,
@@ -1313,13 +1400,18 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
           ? n.position
           : { x: n.position.x + 32, y: n.position.y + 32 },
         selected: true,
-        data: structuredClone(n.data),
+        data,
       };
     });
     // Re-point copied children at copied parents where both were selected.
     for (const copy of copies) {
       if (copy.parentId && idMap.has(copy.parentId)) {
         copy.parentId = idMap.get(copy.parentId);
+      }
+      if (copy.type === "rack" && Array.isArray(copy.data.items)) {
+        copy.data.items = (copy.data.items as RackItem[]).map((item) => ({
+          ...item, deviceId: item.deviceId ? idMap.get(item.deviceId) ?? item.deviceId : undefined,
+        }));
       }
     }
 
@@ -1359,7 +1451,7 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
     };
 
     const onKey = (e: KeyboardEvent) => {
-      if (blocked || !loaded || typing(e.target)) return;
+      if (blocked || reviewLinks || !loaded || typing(e.target)) return;
       const mod = e.metaKey || e.ctrlKey;
 
       if (mod && e.key.toLowerCase() === "z") {
@@ -1416,7 +1508,7 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [blocked, loaded, changeTool, duplicateSelection, restoreHistory, setNodes, showRoom, tool]);
+  }, [blocked, loaded, changeTool, duplicateSelection, restoreHistory, setNodes, showRoom, reviewLinks, tool]);
 
   /* -------------------------------------------------- properties panel */
 
@@ -1505,6 +1597,7 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
 
   return (
     <ThemeContext.Provider value={resolved}>
+      <DeviceIdentityContext.Provider value={{ tags, rename: renameDevice }}>
       <div
         className="relative h-screen w-full"
         inert={blocked || !loaded}
@@ -1523,7 +1616,7 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
         {showRoom && (
           <RoomView
             room={room}
-            items={roomItems}
+            items={shownRoomItems}
             onClose={() => setShowRoom(false)}
             onDeleteItem={(id) => setRoomItems((items) => items.filter((item) => item.id !== id))}
             onMoveItem={(id, change) =>
@@ -1535,6 +1628,9 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
         )}
         <div className="absolute bottom-3 left-1/2 z-20 max-w-[60vw] -translate-x-1/2 rounded-lg bg-background/95 px-3 py-1.5 text-xs shadow" role={saveStatus === 'error' ? 'alert' : 'status'}>
           <span className="font-medium">{session.entry.name}</span> · {t(saveStatus === 'saving' ? 'Saving…' : saveStatus === 'error' ? 'Save failed' : 'Saved locally')}
+          {(duplicateDevices.length > 0 || pendingLinks.length > 0) && (
+            <button className="ml-2 underline" onClick={() => setReviewLinks(true)}>{t("Review device references")}</button>
+          )}
           {saveStatus === 'error' && <><p>{t(saveError)}</p><button className="underline" onClick={() => void flush().catch(() => undefined)}>{t('Retry save')}</button></>}
         </div>
         <FileMenu
@@ -1706,6 +1802,9 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
           )}
         </div>
       </div>
+      <DeviceLinkReview open={reviewLinks} devices={identities} duplicates={duplicateDevices}
+        links={pendingLinks} onClose={() => setReviewLinks(false)} onResolve={resolvePending} />
+      </DeviceIdentityContext.Provider>
     </ThemeContext.Provider>
   );
 }

@@ -1,3 +1,4 @@
+import type { DeviceLink } from "./device-identity";
 import type { RoomImportRecord } from './ai-imports';
 
 /**
@@ -37,13 +38,11 @@ export const DEVICE_KINDS: ItemKind[] = [
 
 export const isDeviceKind = (kind: ItemKind) => DEVICE_KINDS.includes(kind);
 
-export type RoomItem = {
+export type RoomItem = DeviceLink & {
   importId?: string;
   id: string;
   kind: ItemKind;
   label: string;
-  /** Device tag on the schematic, when this item represents one. */
-  tag?: string;
   /** Centre of the item, in metres. */
   position: { x: number; y: number; z: number };
   /** Size in metres. Sensible per-kind defaults are filled in on create. */
@@ -133,6 +132,8 @@ export function makeRoomItem(
     kind: partial.kind,
     label: partial.label,
     tag: partial.tag,
+    deviceId: partial.deviceId,
+    linkStatus: partial.linkStatus,
     position,
     size,
     rotation: partial.rotation ?? 0,

@@ -22,7 +22,9 @@ const savedRoom = roomDimensionsSchema.extend({
 // strings intact and accept rotations beyond one turn when opening a project.
 const savedItem = roomItemSchema.extend({
   id: z.string(), importId: z.string().optional(), color: z.string().optional(),
-  label: z.string(), tag: z.string().optional(), note: z.string().optional(),
+  label: z.string(), tag: z.string().optional(),
+  deviceId: z.string().optional(), linkStatus: z.enum(["needs-review", "unlinked"]).optional(),
+  note: z.string().optional(),
   rotation: z.number().finite(),
   size: z.object({ w: z.number().finite().positive(), h: z.number().finite().positive(), d: z.number().finite().positive() }),
 });

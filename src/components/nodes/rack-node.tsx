@@ -3,14 +3,14 @@ import { memo, useCallback, useRef, useState } from "react";
 import { useReactFlow, type NodeProps } from "@xyflow/react";
 import { Plus, X } from "lucide-react";
 
+import { displayDeviceTag, type DeviceLink } from "@/lib/device-identity";
+import { useDeviceIdentity } from "@/components/device-identity-context";
 import { cn } from "@/lib/utils";
 
 /** One piece of equipment occupying a run of rack units. */
-export type RackItem = {
+export type RackItem = DeviceLink & {
   id: string;
   label: string;
-  /** Device tag on the schematic, when this is one of the drawn devices. */
-  tag?: string;
   /** Lowest rack unit it occupies. 1 is the bottom of the rack. */
   u: number;
   /** Height in rack units. */
@@ -92,6 +92,7 @@ function RackNodeImpl({
 
   const units = Math.max(1, data.units || 24);
   const items = data.items ?? [];
+  const { tags } = useDeviceIdentity();
 
   const setItems = useCallback(
     (next: RackItem[]) => updateNodeData(id, { items: next }),
@@ -237,15 +238,15 @@ function RackNodeImpl({
                 borderColor: item.color ?? "#64748b",
               }}
               onPointerDown={(e) => beginDrag(e, item)}
-              title={`${item.tag ? item.tag + " · " : ""}${item.label} — ${item.height}U ${t("at")} U${item.u}`}
+              title={`${displayDeviceTag(item, tags) ? displayDeviceTag(item, tags) + " · " : ""}${item.label} — ${item.height}U ${t("at")} U${item.u}`}
             >
               <span
                 className="h-2.5 w-1 shrink-0 rounded-[1px]"
                 style={{ background: item.color ?? "#64748b" }}
               />
-              {item.tag && (
+              {displayDeviceTag(item, tags) && (
                 <span className="shrink-0 font-mono text-[9px] font-semibold opacity-80">
-                  {item.tag}
+                  {displayDeviceTag(item, tags)}
                 </span>
               )}
               <input

@@ -3,6 +3,7 @@ import { getSmoothStepPath, Position, type Edge, type Node } from "@xyflow/react
 import { buildIcon, getIcon } from "@iconify/react";
 
 import { avoidObstacles, midpointOf, roundedPath } from "./routing";
+import { deviceIdentities, displayDeviceTag } from "./device-identity";
 import type { RenderedEdge } from "./export-geometry";
 import { arrowMarkers, type ArrowDirection } from "./arrow-direction";
 import type { RackNodeData } from "@/components/nodes/rack-node";
@@ -194,7 +195,7 @@ function deviceSvg(
 </g>`;
 }
 
-function simpleNodeSvg(n: Node, at: { x: number; y: number }) {
+function simpleNodeSvg(n: Node, at: { x: number; y: number }, tags: ReadonlyMap<string, string>) {
   const { w, h } = nodeSize(n);
   const data = n.data as Record<string, unknown>;
 
@@ -270,7 +271,7 @@ function simpleNodeSvg(n: Node, at: { x: number; y: number }) {
       return `<g>
         <rect x="${at.x + 26}" y="${y}" width="${w - 26}" height="${height * unitHeight}" rx="2"
           fill="${safeColor(item.color, "#64748b")}" fill-opacity=".22"/>
-        <text x="${at.x + 30}" y="${y + 11}" class="port">${esc(item.tag)} ${esc(item.label)}</text>
+        <text x="${at.x + 30}" y="${y + 11}" class="port">${esc(displayDeviceTag(item, tags))} ${esc(item.label)}</text>
       </g>`;
     }).join("");
     return `<g data-id="${esc(n.id)}">
@@ -498,6 +499,8 @@ function scheduleRows(nodes: Node[], edges: Edge[]) {
         id: e.id,
         label: ((e.data as { label?: string })?.label ?? "").trim(),
         signal: fp?.signal ?? "audio",
+        fromId: e.source,
+        toId: e.target,
         fromTag: from.tag ?? "",
         fromPort: fp?.label ?? "",
         fromConn: fp?.connector ?? "",
@@ -560,6 +563,7 @@ export function buildViewerHtml({
   };
   const zones = nodes.filter((n) => n.type === "zone");
   const devices = nodes.filter((n) => n.type === "database");
+  const tags = new Map(deviceIdentities(devices).map((device) => [device.id, device.tag]));
   const others = nodes.filter((n) => !["zone", "database"].includes(n.type ?? ""));
   // The first title block also identifies the document in the viewer header.
   const titleNode = nodes.find((n) => n.type === "titleblock");
@@ -600,7 +604,7 @@ export function buildViewerHtml({
   <defs>${markers}</defs>
   <g id="scene">
     ${zones.map((n) => zoneSvg(n, absolute(n))).join("\n")}
-    ${others.map((n) => simpleNodeSvg(n, absolute(n))).join("\n")}
+    ${others.map((n) => simpleNodeSvg(n, absolute(n), tags)).join("\n")}
     ${cables.map((c) => c.svg).join("\n")}
     ${devices.map((n) => deviceSvg(n, absolute(n), signals)).join("\n")}
   </g>
@@ -923,7 +927,7 @@ export function buildViewerHtml({
     var g = document.querySelector('.device[data-id="' + CSS.escape(id) + '"]');
     if (g) g.classList.add("sel");
 
-    var links = CABLES.filter(function(c){ return c.fromTag === d.tag || c.toTag === d.tag; });
+    var links = CABLES.filter(function(c){ return c.fromId === d.id || c.toId === d.id; });
     panel.innerHTML =
       '<button class="close" title="${esc(t("Close"))}">&times;</button>' +
       '<h2>' + escapeHtml(d.name) + '</h2>' +
@@ -940,8 +944,8 @@ export function buildViewerHtml({
       (links.length
         ? '<table><tr><th>${esc(t("Cables"))} (' + links.length + ')</th></tr>' +
           links.map(function(c){
-            var other = c.fromTag === d.tag ? (c.toTag + "/" + c.toPort) : (c.fromTag + "/" + c.fromPort);
-            var dir = c.fromTag === d.tag ? "→" : "←";
+            var other = c.fromId === d.id ? (c.toTag + "/" + c.toPort) : (c.fromTag + "/" + c.fromPort);
+            var dir = c.fromId === d.id ? "→" : "←";
             return '<tr><td><b>' + (escapeHtml(c.label) || "—") + '</b> ' + dir + " " + escapeHtml(other) + '</td></tr>';
           }).join("") + '</table>'
         : "");
