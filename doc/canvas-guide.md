@@ -172,7 +172,7 @@ choose the intended device or keep the original tag without a link.
 
 | Item | Result |
 | --- | --- |
-| Open project… | Replaces the whole drawing from a `.json` project file |
+| Open project… | Validates a drawing JSON file and opens it as a new local project |
 | Save project | Downloads a `.json` project (`kind: "av-schematic"`, version 1) |
 | Export schedules | `.xlsx` device and cable schedules |
 | Print / Export PDF | PDF via jsPDF |
@@ -198,17 +198,14 @@ recovery screen. The affected project remains in storage.
 
 ## 9. Where state lives
 
-Dexie database `av-schematic-db` (schema v4) in the browser:
+The project catalog and each project's working copy, images and version history
+are stored locally in IndexedDB. The old `av-schematic-db` database remains
+available for the initial legacy import. Working copies save automatically,
+and a named version records a separate recovery point.
 
-| Table | Contents |
-| --- | --- |
-| `nodes`, `edges` | The drawing |
-| `drawings` | Pen strokes |
-| `viewport` | Pan/zoom |
-| `settings` | Sticky tool defaults (pen colour/width, text, memo, snap, grid) |
-| `room`, `roomItems` | The 3D room |
-| `legend` | The signal legend |
-
-Two browser tabs on the same origin share one database but do **not** live-sync
-— the last write wins. Clearing site data wipes the drawing; export a project
-file first.
+Tabs on the same origin share storage. If another tab saves the current
+project, a stale editor rejects the conflicting save and lets you download its
+open work before reopening. The project manager keeps a backup of the current
+work before restoring an earlier version. Clearing site data removes the local
+catalog and history. Drawing JSON includes the current project and embedded
+images, while named versions remain in local storage.

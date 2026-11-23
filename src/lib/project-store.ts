@@ -1,10 +1,11 @@
 import { Database, DocID, meta, ConflictError, MultipleConflictsError, type CBLDocument, type ListenerToken } from '@couchbase/lite-js';
 import { parseProject, type ProjectFile } from './project';
 import { captureProject, ProjectAssetCodec, type ImageAsset, type StoredProject } from './project-assets';
+import type { ProjectArchive } from './project-archive';
 
 export const CATALOG_DATABASE = 'iconic-project-catalog';
 export const projectDatabaseName = (id: string) => `iconic-project-${id}`;
-export type ProjectEntry = { id: string; name: string; createdAt: string };
+export type ProjectEntry = { id: string; name: string; createdAt: string; updatedAt?: string; archived?: true };
 export type VersionReason = 'initial' | 'manual' | 'before-restore' | 'restore';
 export type ProjectVersion = { id: string; number: number; label: string; createdAt: string; reason: VersionReason; sourceVersion: string };
 type CatalogDoc = { entries: string; active: string; migrated: boolean };
@@ -176,8 +177,9 @@ export class ProjectSession {
     } catch (error) { return this.recovery(entry, database, codec, error); }
   }
 
-  static async create(entry: ProjectEntry, project: ProjectFile) {
+  static async create(entry: ProjectEntry, project: ProjectFile, history?: ProjectArchive["history"]) {
     const captured = captureProject(project);
+    const imported = history?.map(({ project, ...version }) => ({ ...version, captured: captureProject(project) }));
     const codec = new ProjectAssetCodec();
     let database: ProjectDB | undefined;
     try {
@@ -187,21 +189,35 @@ export class ProjectSession {
       // A deterministic migration ID allows recovery after a catalog write failed.
       if (existing) return await this.attach(entry, database, existing, codec);
       const { stored, assets } = await codec.prepare(captured);
+      const combined = new Map<string, ImageAsset>();
+      addAssets(combined, assets);
+      const versionNumber = imported?.reduce((latest, item) => Math.max(latest, item.number), 1) ?? 1;
       const body: SnapshotDoc = {
         kind: 'asset-head', name: entry.name, createdAt: entry.createdAt, updatedAt: entry.createdAt,
-        sequence: 1, versionNumber: 1, label: '', reason: 'initial', sourceVersion: '', versionId: '', ...stored,
+        sequence: 1, versionNumber, label: '', reason: 'initial', sourceVersion: '', versionId: '', ...stored,
       };
-      const initial: SnapshotDoc = { ...body, kind: 'asset-version', versionId: crypto.randomUUID() };
+      const snapshots: SnapshotDoc[] = [];
+      if (imported?.length) {
+        for (const item of imported) {
+          const prepared = await codec.prepare(item.captured);
+          addAssets(combined, prepared.assets);
+          snapshots.push({ ...body, ...prepared.stored, kind: 'asset-version', versionId: item.id, versionNumber: item.number,
+            label: item.label, reason: item.reason, sourceVersion: item.sourceVersion, createdAt: item.createdAt });
+        }
+      } else snapshots.push({ ...body, kind: 'asset-version', versionId: crypto.randomUUID() });
+      const uniqueAssets = [...combined.values()];
       const save = [
         collection.createDocument(DocID(HEAD_ID), body),
-        collection.createDocument(DocID(snapshotId(initial.versionId)), initial),
-        collection.createDocument(DocID(versionInfoId(initial.versionId)), metadata(initial)),
+        ...snapshots.flatMap(snapshot => [
+          collection.createDocument(DocID(snapshotId(snapshot.versionId)), snapshot),
+          collection.createDocument(DocID(versionInfoId(snapshot.versionId)), metadata(snapshot)),
+        ]),
         collection.createDocument(DocID(LAYOUT_ID), { kind: 'asset-layout', version: 1, migratedFromInline: false, legacySequence: 0 }),
-        ...await newAssetDocuments(database, assets, codec),
+        ...await newAssetDocuments(database, uniqueAssets, codec),
       ];
       await collection.updateMultiple({ save, bestEffort: false });
       const session = new ProjectSession(entry, database, body, codec);
-      assets.forEach(asset => codec.markStored(asset));
+      uniqueAssets.forEach(asset => codec.markStored(asset));
       return session;
     } catch (error) {
       // Two initial tabs can race to copy the same legacy database. Only the
@@ -317,9 +333,63 @@ export class ProjectSession {
   versions(): Promise<ProjectVersion[]> {
     return this.enqueue(async () => {
       await this.checkLegacy();
-      return this.database.createQuery(
-        "SELECT versionId AS id, versionNumber AS number, label, createdAt, reason, sourceVersion FROM documents WHERE kind = 'version-info' ORDER BY versionNumber DESC",
-      ).execute<ProjectVersion>();
+      return this.versionMetadata();
+    });
+  }
+
+  private versionMetadata() {
+    return this.database.createQuery(
+      "SELECT versionId AS id, versionNumber AS number, label, createdAt, reason, sourceVersion FROM documents WHERE kind = 'version-info' ORDER BY versionNumber DESC",
+    ).execute<ProjectVersion>();
+  }
+
+  private async versionProject(versionId: string): Promise<ProjectFile> {
+    const target = await this.database.collections.documents.getDocument(DocID(snapshotId(versionId)));
+    if (target?.kind !== 'asset-version') throw new Error('Version not found.');
+    return parseProject(await this.portable(target));
+  }
+
+  readVersion(versionId: string): Promise<ProjectFile> {
+    return this.enqueue(async () => {
+      await this.checkLegacy();
+      return this.versionProject(versionId);
+    });
+  }
+
+  exportArchive(current: ProjectFile): Promise<ProjectArchive> {
+    const captured = structuredClone(current);
+    return this.enqueue(async () => {
+      const head = await this.head();
+      const history: ProjectArchive["history"] = [];
+      for (const entry of await this.versionMetadata()) {
+        history.push({ ...entry, project: await this.versionProject(entry.id) });
+      }
+      // Abort if another editor checkpointed or changed the project while reading.
+      if ((await this.head()).sequence !== head.sequence) throw new ProjectConflictError();
+      return { kind: 'iconic-project-archive', version: 1, name: this.entry.name, current: captured, history };
+    });
+  }
+
+  removeVersions(ids: string[]): Promise<void> {
+    const selected = new Set(ids);
+    return this.enqueue(async () => {
+      if (!selected.size) return;
+      const head = await this.head();
+      const versions = await this.versionMetadata();
+      if (versions.every(version => selected.has(version.id))) throw new Error('Keep at least one project version.');
+      const collection = this.database.collections.documents;
+      const removed: CBLDocument<StorageDoc>[] = [];
+      for (const id of selected) {
+        const snapshot = await collection.getDocument(DocID(snapshotId(id)));
+        const info = await collection.getDocument(DocID(versionInfoId(id)));
+        if (snapshot?.kind !== 'asset-version' || info?.kind !== 'version-info') throw new Error('Version not found.');
+        removed.push(snapshot, info);
+      }
+      head.sequence++;
+      await this.checkLegacy();
+      await collection.updateMultiple({ save: [head], delete: removed, bestEffort: false });
+      this.sequence = head.sequence;
+      await this.checkLegacy();
     });
   }
 
@@ -412,8 +482,37 @@ export class ProjectCatalog {
   async activeId() { return (await this.state()).active; }
   async activate(id: string) {
     await this.change(doc => {
-      if (!(JSON.parse(doc.entries) as ProjectEntry[]).some(entry => entry.id === id)) throw new Error('Project not found.');
+      if (!(JSON.parse(doc.entries) as ProjectEntry[]).some(entry => entry.id === id && !entry.archived)) throw new Error('Project not found.');
       doc.active = id;
+    });
+  }
+  private async editEntry(id: string, edit: (entry: ProjectEntry, document: CBLDocument<CatalogDoc>) => void) {
+    let entry: ProjectEntry | undefined;
+    await this.change(doc => {
+      const entries: ProjectEntry[] = JSON.parse(doc.entries);
+      entry = entries.find(item => item.id === id);
+      if (!entry) throw new Error('Project not found.');
+      edit(entry, doc);
+      doc.entries = JSON.stringify(entries);
+    });
+    return entry!;
+  }
+  rename(id: string, name: string) {
+    const trimmed = name.trim();
+    if (!trimmed || trimmed.length > 200) throw new Error('Enter a project name (1–200 characters).');
+    return this.editEntry(id, entry => { entry.name = trimmed; });
+  }
+  setArchived(id: string, archived: boolean) {
+    return this.editEntry(id, (entry, doc) => {
+      if (archived) {
+        entry.archived = true;
+        if (doc.active === id) doc.active = '';
+      } else delete entry.archived;
+    });
+  }
+  markEdited(id: string, updatedAt: string) {
+    return this.editEntry(id, entry => {
+      if ((entry.updatedAt ?? entry.createdAt) < updatedAt) entry.updatedAt = updatedAt;
     });
   }
   private async register(entry: ProjectEntry, migrated = false) {
@@ -425,13 +524,14 @@ export class ProjectCatalog {
       if (migrated) doc.migrated = true;
     });
   }
-  async create(name: string, project: ProjectFile) {
+  async create(name: string, project: ProjectFile, history?: ProjectArchive["history"]) {
     if (!name.trim() || name.trim().length > 200) throw new Error('Enter a project name (1–200 characters).');
     const entry: ProjectEntry = { id: crypto.randomUUID(), name: name.trim(), createdAt: new Date().toISOString() };
-    const session = await ProjectSession.create(entry, project);
+    const session = await ProjectSession.create(entry, project, history);
     try { await this.register(entry); return session; }
     catch (error) { await session.close(); throw error; }
   }
+  importArchive(archive: ProjectArchive) { return this.create(archive.name, archive.current, archive.history); }
   async initialize(readLegacy: () => Promise<ProjectFile>, legacyName: string) {
     const state = await this.state();
     if (!state.migrated && !state.active) {
@@ -441,7 +541,8 @@ export class ProjectCatalog {
       catch (error) { await session.close(); throw error; }
     }
     const entries = await this.list();
-    const entry = entries.find(item => item.id === state.active) ?? entries[0];
+    const available = entries.filter(item => !item.archived);
+    const entry = available.find(item => item.id === state.active) ?? available[0];
     if (!entry) throw new Error('Project catalog is empty.');
     return ProjectSession.open(entry);
   }
