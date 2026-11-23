@@ -1226,7 +1226,7 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
               }),
             ),
           );
-          return ok(cmd.type, { tag: data.tag, zone: cmd.zone });
+          return ok(cmd.type, { deviceId: id, tag: data.tag, zone: cmd.zone });
         }
 
         case "add_text":
