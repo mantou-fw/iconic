@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { validateActions } from "../../desktop/commands.mjs";
+import type { ProjectObjectKind } from "./project-read";
 
 import type { SignalType } from "./signal-types";
 import type { ItemKind, MountKind } from "./room";
@@ -18,6 +19,8 @@ export type AICommand =
   | ({ type: "import_product" } & ProductImport)
   | ({ type: "import_room_layout" } & RoomImport)
   | { type: "get_state" }
+  | { type: "get_project_context" }
+  | { type: "get_project_object"; kind: ProjectObjectKind; id: string }
   | { type: "clear" }
   | {
       type: "set_room";

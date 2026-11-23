@@ -22,7 +22,7 @@ Verify with `npm run mcp:check` while the app is open. It lists tools and reads 
 
 ## Tools
 
-The 17 tools are registered in `mcp/server.mjs` and `mcp/import-tools.mjs`; import schemas shared by the server and renderer live in `shared/ai-imports.mjs`. Tools cover listing devices, creating zones/devices/text/memos, product imports, connecting ports, deleting devices, layout, racks, room state/items, photo-derived room imports, clearing and batched system/room construction.
+The 19 tools are registered in `mcp/server.mjs` and `mcp/import-tools.mjs`; import schemas shared by the server and renderer live in `shared/ai-imports.mjs`. Tools cover listing devices, creating zones/devices/text/memos, product imports, connecting ports, deleting devices, layout, racks, room state/items, photo-derived room imports, clearing and batched system/room construction.
 
 Read the current drawing before editing. Preserve existing work unless the user requests removal. Create zones before devices and devices before cables. Use exact device tags and port labels; reuse tags across schematic, rack equipment and room items. Room measurements use metres.
 
@@ -59,3 +59,8 @@ If the canvas cannot be reached, open the app and check `AV_CANVAS_URL`. If no c
 The app's **AI 使用說明** panel now provides an agent-pack ZIP and client selection. The pack bundles the MCP server and its dependencies, so it does not need the app source checkout or `npm install`. From its permanent extracted directory, run `node scripts/setup-agent.mjs --agent codex --with-skill` (or `claude-code`). Preview with `--dry-run` first. Generic mode prints JSON for other clients.
 
 The installer can install the skill through Vercel skills CLI 1.7.4, requiring Node.js 22.20+. Installing the skill alone uses `npx skills@1.7.4 add . --skill av-schematic -a codex -a claude-code -g --copy`. This does not register MCP. See [distribution details](agent-distribution.md) for existing-registration handling, verification and publishing.
+### Read the active project
+
+`get_project_context` returns version 1 with `nodes`, `cables`, and `room`. Each node has a stable ID, type, parent ID, position and object data. Positions are relative to the named parent or to the schematic canvas. Room items use metres in the room coordinate space. Rack equipment and room items use `deviceId` to refer to a schematic device. Each cable endpoint includes a node ID, port ID and available display label.
+
+`get_project_object` accepts a `kind` of `node`, `cable` or `room-item` and the exact `id` from the summary. It returns `{ version, kind, id, found, object }`. Missing objects return `found: false` and `object: null`. Image nodes return source metadata in both tools. Freehand nodes include points in targeted reads. Existing `list_devices` and `get_room` calls remain available.

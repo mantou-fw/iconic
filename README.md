@@ -101,7 +101,7 @@ Generic MCP configuration (use your actual absolute path):
 
 Ask Codex: **“Use $av-schematic. Read the current canvas, then add a meeting-room AV system while preserving existing content.”**
 
-The MCP server exposes 17 tools for devices, zones, cables, racks, layouts and 3D rooms. Read the canvas before editing; clear or delete only when requested. JSON and PNG/SVG/PDF/HTML/XLSX exports are manual app features. See [MCP setup](doc/mcp-integration.md), [agent distribution](doc/agent-distribution.md) and the [skill](.agents/skills/av-schematic/SKILL.md).
+The MCP server exposes 19 tools for project inspection, devices, zones, cables, racks, layouts and 3D rooms. Read the canvas before editing; clear or delete only when requested. JSON and PNG/SVG/PDF/HTML/XLSX exports are manual app features. See [MCP setup](doc/mcp-integration.md), [agent distribution](doc/agent-distribution.md) and the [skill](.agents/skills/av-schematic/SKILL.md).
 
 Give your AI an exact product model or datasheet to create a device with verified ports and source references (`import_product`). Attach room photos or a floor plan to a vision-capable AI to generate a 3D layout (`import_room_layout`); include known room measurements, or let it record explicit estimates. Research and image interpretation happen in your AI client. Imports preserve existing content by default, and project JSON saves the room and its source/scale assumptions. See the [import workflow](.agents/skills/av-schematic/references/imports.md).
 

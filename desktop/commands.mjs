@@ -19,7 +19,8 @@ export function validateActions(actions) {
       switch (cmd.type) {
         case 'import_product': productSchema.parse(cmd); break;
         case 'import_room_layout': roomImportSchema.parse(cmd); break;
-        case 'get_state': case 'get_room': case 'clear': case 'clear_room': case 'layout': break;
+        case 'get_state': case 'get_room': case 'get_project_context': case 'clear': case 'clear_room': case 'layout': break;
+        case 'get_project_object': valid &&= ['node', 'cable', 'room-item'].includes(cmd.kind) && text(cmd.id) && cmd.id.trim().length > 0; break;
         case 'add_device': valid &&= stringFields(cmd, ['tag','name','manufacturer','model','zone']) && optional(cmd.inputs,ports) && optional(cmd.outputs,ports); break;
         case 'add_zone': valid &&= text(cmd.name) && optional(cmd.color,text) && ['width','height'].every(key => optional(cmd[key],value => number(value) && value > 0)); break;
         case 'add_text': case 'add_memo': valid &&= text(cmd.text); break;

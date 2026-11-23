@@ -50,6 +50,7 @@ import {
 import { ShapeNode, makeShapeData } from "@/components/nodes/shape-node";
 import { FileMenu } from "@/components/file-menu";
 import { useAIBridge, type AICommand, type AIReply } from "@/lib/ai-bridge";
+import { readProjectContext, readProjectObject } from "@/lib/project-read";
 import { parseProject, type ProjectFile } from "@/lib/project";
 import { captureCanvas } from "@/lib/canvas-project";
 import type { ProjectSession } from "@/lib/project-store";
@@ -961,7 +962,7 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
         message,
       });
 
-      if (!loaded || ((blocked || reviewLinks) && !['get_state', 'get_room'].includes(cmd.type))) {
+      if (!loaded || ((blocked || reviewLinks) && !['get_state', 'get_room', 'get_project_context', 'get_project_object'].includes(cmd.type))) {
         return fail(cmd.type, 'Project is loading or its version manager is open. Retry after it closes.');
       }
       const current = rf.getNodes();
@@ -1048,6 +1049,12 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
       switch (cmd.type) {
         case "get_state":
           return snapshot();
+
+        case "get_project_context":
+          return ok(cmd.type, readProjectContext({ nodes: current, edges: rf.getEdges(), room, roomItems }));
+
+        case "get_project_object":
+          return ok(cmd.type, readProjectObject({ nodes: current, edges: rf.getEdges(), room, roomItems }, cmd.kind, cmd.id));
 
         case "clear":
           setNodes([]);
