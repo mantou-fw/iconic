@@ -181,9 +181,11 @@ The coloured dot next to the menu is the **desktop command channel status**: gre
 amber = connecting, green = live. If it is not green, an agent cannot drive the
 canvas.
 
-Opening a project validates it first: it must be valid JSON with
-`kind: "av-schematic"` and node/edge arrays, or the open is rejected and the
-current drawing is left alone.
+Opening a project validates its version, objects, parent references and cable
+endpoints before creating or activating a new project. The error identifies the
+first invalid field. If the active project cannot load, export its original
+stored contents, create a blank project or switch to another one from the
+recovery screen. The affected project remains in storage.
 
 ---
 

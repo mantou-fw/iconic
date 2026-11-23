@@ -26,7 +26,7 @@ export function validateActions(actions) {
         case 'connect': valid &&= text(cmd.from) && text(cmd.to) && stringFields(cmd,['fromPort','toPort','label']); break;
         case 'delete_device': valid &&= text(cmd.tag); break;
         case 'add_title_block': valid &&= optional(cmd.fields,value => object(value) && Object.values(value).every(text)); break;
-        case 'add_rack': valid &&= stringFields(cmd,['tag','name']) && optional(cmd.units,value => number(value) && value >= 1 && value <= 100) && optional(cmd.equipment,array(value => object(value) && text(value.label) && stringFields(value,['tag','deviceId','color']) && ['u','height'].every(key => optional(value[key],n => number(n) && n >= 1 && n <= 100)))); break;
+        case 'add_rack': valid &&= stringFields(cmd,['tag','name']) && optional(cmd.units,value => Number.isInteger(value) && value >= 1 && value <= 100) && optional(cmd.equipment,array(value => object(value) && text(value.label) && stringFields(value,['tag','deviceId','color']) && ['u','height'].every(key => optional(value[key],n => Number.isInteger(n) && n >= 1 && n <= 100)))); break;
         case 'set_room': valid &&= optional(cmd.name,text) && ['width','depth','height'].every(key => optional(cmd[key],value => number(value) && value > 0 && value <= 1000)) && optional(cmd.clearItems,value => typeof value === 'boolean'); break;
         case 'add_room_item':
           // Room positions allow optional z; schematic positions require x/y.

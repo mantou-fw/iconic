@@ -110,10 +110,11 @@ export function normalizeDeviceData(data: any): AVDeviceData {
   }
   const legacyFields = Array.isArray(data?.fields) ? data.fields : [];
   return {
-    tag: "DEV-01",
-    name: data?.label ?? "Device",
-    manufacturer: "",
-    model: "",
+    ...data,
+    tag: data?.tag ?? "DEV-01",
+    name: data?.name ?? data?.label ?? "Device",
+    manufacturer: data?.manufacturer ?? "",
+    model: data?.model ?? "",
     v: SCHEMA_V,
     ports: legacyFields.map((f: any, i: number) => ({
       id: f.id ?? newPortId(),
@@ -247,7 +248,7 @@ function AVDeviceNodeImpl({
   selected,
 }: NodeProps & { data: AVDeviceData }) {
   const t = useT();
-  const { updateNodeData } = useReactFlow();
+  const { updateNodeData, setEdges } = useReactFlow();
 
   const { rename } = useDeviceIdentity();
   const [tagDraft, setTagDraft] = useState(data.tag);
@@ -283,8 +284,13 @@ function AVDeviceNodeImpl({
   const updatePort = (portId: string, p: Partial<DevicePort>) =>
     setPorts(data.ports.map((x) => (x.id === portId ? { ...x, ...p } : x)));
 
-  const removePort = (portId: string) =>
-    setPorts(data.ports.filter((x) => x.id !== portId));
+  const removePort = (portId: string) => {
+    setPorts(data.ports.filter((port) => port.id !== portId));
+    setEdges((edges) => edges.filter((edge) =>
+      !(edge.source === id && edge.sourceHandle === portId)
+      && !(edge.target === id && edge.targetHandle === portId),
+    ));
+  };
 
   const addPort = (dir: "in" | "out") =>
     setPorts([...data.ports, makePort(dir)]);
