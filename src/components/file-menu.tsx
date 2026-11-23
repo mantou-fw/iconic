@@ -4,6 +4,7 @@ import {
   Boxes,
   ClipboardCheck,
   BookOpen,
+  LibraryBig,
   ChevronDown,
   FileDown,
   FileImage,
@@ -76,6 +77,7 @@ function Item({
 export function FileMenu({
   onProjects,
   onReview,
+  onLibrary,
   onOpen,
   onSaveJson,
   onExportXlsx,
@@ -90,6 +92,7 @@ export function FileMenu({
 }: {
   onProjects: () => void;
   onReview: () => void;
+  onLibrary: () => void;
   onOpen: () => void;
   onSaveJson: () => void;
   onExportXlsx: () => void;
@@ -179,6 +182,7 @@ export function FileMenu({
             />
             <div className="my-1 h-px bg-[var(--hairline)]" />
             <Item icon={ClipboardCheck} label={t("Drawing checks")} onClick={run(onReview)} />
+            <Item icon={LibraryBig} label={t("Reusable library")} onClick={run(onLibrary)} />
             <Item
               icon={Sheet}
               label={t("Export schedules")}

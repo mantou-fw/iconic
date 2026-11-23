@@ -180,6 +180,7 @@ choose the intended device or keep the original tag without a link.
 | Export vector | SVG |
 | Interactive viewer | One self-contained `.html` file — pannable, zoomable, no server needed |
 | 3D room view | Switches to the room |
+| Reusable library | Saves and places reviewed equipment definitions and room templates |
 
 The interactive viewer keeps each title block on the drawing. The first block
 also supplies the viewer's heading and project metadata.
@@ -220,3 +221,16 @@ Preview a version to compare its contents against the current drawing before
 restoring. To manage retention, select the versions to remove and confirm the
 list. The current drawing and unselected versions are kept, and at least one
 version must remain.
+
+## 10. Reuse equipment and room layouts
+
+Open **Reusable library** from the file menu. Choose a schematic device or the
+current room under **Save from project**. A device definition keeps its
+specifications, ports, and source evidence. Instantiating it creates a new
+device and tag. Save a new library version to keep earlier definitions
+available. To update a drawing device, review the version and explicitly
+apply it to that device. Connected ports must remain present.
+
+A room template creates a separate project with new room item IDs. Links to
+schematic devices in the original project are cleared. Use **Export library**
+and **Import library** to transfer definitions and their version histories.

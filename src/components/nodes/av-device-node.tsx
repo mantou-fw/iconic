@@ -18,6 +18,7 @@ import { ImportEvidence } from "@/components/import-evidence";
 
 export type DevicePort = {
   id: string;
+  libraryPortId?: string;
   label: string;
   connector: string;
   signal: SignalType;
