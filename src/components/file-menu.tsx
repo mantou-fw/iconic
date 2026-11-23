@@ -2,6 +2,7 @@ import { useLocale, setLocale, type Locale, useT } from "@/lib/i18n";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Boxes,
+  ClipboardCheck,
   BookOpen,
   ChevronDown,
   FileDown,
@@ -74,6 +75,7 @@ function Item({
 
 export function FileMenu({
   onProjects,
+  onReview,
   onOpen,
   onSaveJson,
   onExportXlsx,
@@ -87,6 +89,7 @@ export function FileMenu({
   aiStatus,
 }: {
   onProjects: () => void;
+  onReview: () => void;
   onOpen: () => void;
   onSaveJson: () => void;
   onExportXlsx: () => void;
@@ -175,6 +178,7 @@ export function FileMenu({
               onClick={run(onSaveJson)}
             />
             <div className="my-1 h-px bg-[var(--hairline)]" />
+            <Item icon={ClipboardCheck} label={t("Drawing checks")} onClick={run(onReview)} />
             <Item
               icon={Sheet}
               label={t("Export schedules")}

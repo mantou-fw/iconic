@@ -49,6 +49,8 @@ import {
 } from "@/components/nodes/icon-text-node";
 import { ShapeNode, makeShapeData } from "@/components/nodes/shape-node";
 import { FileMenu } from "@/components/file-menu";
+import { DrawingReview } from "@/components/drawing-review";
+import { checkDrawing, type DrawingFinding } from "@/lib/drawing-checks";
 import { useAIBridge, type AICommand, type AIReply } from "@/lib/ai-bridge";
 import { readProjectContext, readProjectObject } from "@/lib/project-read";
 import { parseProject, type ProjectFile } from "@/lib/project";
@@ -250,6 +252,8 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
   const { theme, resolved, setTheme } = useTheme();
 
   const rf = useReactFlow();
+  const [review, setReview] = useState<"drawing" | "xlsx" | "html" | "pdf" | "png" | "svg" | null>(null);
+  const [roomSelection, setRoomSelection] = useState<string>();
   const paneRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingImagePos = useRef<Point | null>(null);
@@ -380,6 +384,7 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
                 midX: e.midX,
                 midY: e.midY,
                 direction: e.direction,
+                reviewExplanation: e.reviewExplanation,
               },
             },
             allNodes,
@@ -987,6 +992,38 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
     if (exportState.format === "xlsx") onExportXlsx();
     else if (exportState.format === "html") onExportHtml();
     else onExportImage(exportState.format);
+  };
+
+  const findings = useMemo(() => review ? checkDrawing(nodes, edges, roomItems) : [], [review, nodes, edges, roomItems]);
+  const exportFormat = (format: Exclude<typeof review, "drawing" | null>) => {
+    if (format === "xlsx") onExportXlsx();
+    else if (format === "html") onExportHtml();
+    else onExportImage(format);
+  };
+  const requestExport = (format: Exclude<typeof review, "drawing" | null>) => {
+    if (checkDrawing(rf.getNodes(), rf.getEdges(), roomItems).length) setReview(format);
+    else exportFormat(format);
+  };
+  const jumpToFinding = (finding: DrawingFinding) => {
+    setReview(null);
+    if (finding.kind === "room-item") {
+      reloadTask.dismiss();
+      exportTask.dismiss();
+      setRoomSelection(finding.id);
+      setShowRoom(true);
+      return;
+    }
+    const edge = finding.kind === "edge" ? rf.getEdge(finding.id) : undefined;
+    const targets = finding.kind === "node" ? [finding.id] : edge ? [edge.source, edge.target] : [];
+    setNodes((current) => current.map((node) => {
+      const selected = finding.kind === "node" && node.id === finding.id;
+      return !!node.selected === selected ? node : { ...node, selected };
+    }));
+    setEdges((current) => current.map((candidate) => {
+      const selected = candidate.id === edge?.id;
+      return !!candidate.selected === selected ? candidate : { ...candidate, selected };
+    }));
+    if (targets.length) void rf.fitView({ nodes: targets.map((id) => ({ id })), maxZoom: 1.25, duration: 250 });
   };
 
   const toggleSnap = useCallback(
@@ -1688,6 +1725,7 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
           <RoomViewFeature
             room={room}
             items={shownRoomItems}
+            initialSelection={roomSelection}
             onClose={closeRoom}
             recovery={{ state: reloadState, onReload: saveAndReload, onCancel: reloadTask.dismiss }}
             onDeleteItem={(id) => setRoomItems((items) => items.filter((item) => item.id !== id))}
@@ -1707,18 +1745,25 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
         </div>
         <FileMenu
           onProjects={onProjects}
+          onReview={() => setReview("drawing")}
           onOpen={() => projectInputRef.current?.click()}
           onSaveJson={onSaveJson}
-          onExportXlsx={onExportXlsx}
-          onExportImage={onExportImage}
-          onExportHtml={onExportHtml}
+          onExportXlsx={() => requestExport("xlsx")}
+          onExportImage={requestExport}
+          onExportHtml={() => requestExport("html")}
           exportBusy={exportState?.phase === "preparing" || reloadState?.phase === "saving"}
-          onOpenRoom={() => { reloadTask.dismiss(); setShowRoom(true); }}
+          onOpenRoom={() => { reloadTask.dismiss(); setRoomSelection(undefined); setShowRoom(true); }}
           roomItemCount={roomItems.length}
           theme={theme}
           onThemeChange={setTheme}
           aiStatus={aiStatus}
         />
+        {review && <DrawingReview findings={findings} format={review === "drawing" ? undefined : review}
+          onClose={() => setReview(null)}
+          onProceed={() => { setReview(null); if (review !== "drawing") exportFormat(review); }}
+          onJump={jumpToFinding}
+          onExplain={(id, text) => setEdges((current) => current.map((edge) => edge.id === id
+            ? { ...edge, data: { ...edge.data, reviewExplanation: text.trim() || undefined } } : edge))} />}
         <ExportStatus state={exportState} onRetry={retryExport}
           onDismiss={() => { reloadTask.dismiss(); exportTask.dismiss(); }}
           recovery={{ state: reloadState, onReload: saveAndReload, onCancel: reloadTask.dismiss }} />

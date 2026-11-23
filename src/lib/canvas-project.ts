@@ -22,7 +22,8 @@ export function captureCanvas(current: Node[], edges: Edge[], settings: ToolSett
     }),
     edges: edges.map(e => ({ id: e.id, source: e.source, target: e.target, sourceHandle: e.sourceHandle, targetHandle: e.targetHandle,
       label: e.data?.label as string | undefined, midX: e.data?.midX as number | undefined, midY: e.data?.midY as number | undefined,
-      direction: e.data?.direction as 'forward' | 'backward' | 'both' | undefined })),
+      direction: e.data?.direction as 'forward' | 'backward' | 'both' | undefined,
+      reviewExplanation: typeof e.data?.reviewExplanation === 'string' ? e.data.reviewExplanation : undefined })),
     settings, signals, room, roomItems, viewport: { id: 'viewport', ...viewport },
   };
 }
