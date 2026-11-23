@@ -6,6 +6,7 @@ import { ProjectCatalog, ProjectSession, projectDatabaseName, CATALOG_DATABASE, 
 import { blankProject, captureCanvas } from './canvas-project';
 import { db } from './db';
 import { readProject } from './project';
+import { parseProjectArchive } from './project-archive';
 
 Database.useIndexedDB(indexedDB, IDBKeyRange);
 const sessions: ProjectSession[] = [];
@@ -23,6 +24,42 @@ async function create(catalog: ProjectCatalog, name = 'Room A') {
 }
 
 describe('real Couchbase Lite project storage', () => {
+  test('round-trips an independent project archive with embedded images and immutable earlier versions', async () => {
+    const catalog = await setup();
+    const original = await create(catalog, 'Source project');
+    const project = blankProject();
+    project.nodes.push({ id: 'image', type: 'image', position: { x: 20, y: 30 }, data: { src: 'data:image/png;base64,AQID' } });
+    await original.checkpoint(project, 'With image');
+    const version = (await original.versions())[0]!;
+    project.nodes[0]!.position.x = 70;
+    const archive = parseProjectArchive(JSON.stringify(await original.exportArchive(project)));
+    const restored = await catalog.importArchive(archive);
+    sessions.push(restored);
+    expect(restored.entry.id).not.toBe(original.entry.id);
+    expect((await restored.read()).nodes).toEqual(project.nodes);
+    expect(await restored.versions()).toEqual(await original.versions());
+    expect((await restored.readVersion(version.id)).nodes[0]).toMatchObject({
+      position: { x: 20 }, data: { src: 'data:image/png;base64,AQID' },
+    });
+    await restored.removeVersions([version.id]);
+    expect(await restored.versions()).toHaveLength(1);
+    expect(await original.versions()).toHaveLength(2);
+    await expect(restored.removeVersions((await restored.versions()).map(item => item.id))).rejects.toThrow('Keep at least one');
+  });
+
+  test('renaming and archiving catalog entries preserve the underlying project and can be reversed', async () => {
+    const catalog = await setup();
+    const project = await create(catalog);
+    await catalog.rename(project.entry.id, ' Renovation ');
+    await catalog.markEdited(project.entry.id, '2099-01-01T00:00:00.000Z');
+    await catalog.setArchived(project.entry.id, true);
+    expect(await catalog.list()).toMatchObject([{ id: project.entry.id, name: 'Renovation', archived: true, updatedAt: '2099-01-01T00:00:00.000Z' }]);
+    await expect(catalog.activate(project.entry.id)).rejects.toThrow('Project not found');
+    await catalog.setArchived(project.entry.id, false);
+    await catalog.activate(project.entry.id);
+    expect(await project.read()).toMatchObject({ nodes: [], edges: [] });
+    expect((await catalog.list())[0]!.archived).toBeUndefined();
+  });
   test('creates isolated databases and persists full project contents across reopen', async () => {
     const catalog = await setup();
     const a = await create(catalog), b = await create(catalog, 'Room B');
