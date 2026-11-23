@@ -307,5 +307,8 @@
   "Reload stopped. Your work is still open.": "再読み込みを中止しました。作業内容は開いたままです。",
   "Use File → Save project in the schematic to export a backup.": "配線図の「ファイル → プロジェクトを保存」でバックアップをエクスポートしてください。",
   "Save and reload": "保存して再読み込み",
-  "The drawing changed while saving. Please try Save and reload again.": "保存中に図面が変更されました。「保存して再読み込み」をもう一度選んでください。"
+  "The drawing changed while saving. Please try Save and reload again.": "保存中に図面が変更されました。「保存して再読み込み」をもう一度選んでください。",
+  "Export current project data": "現在のプロジェクトデータを書き出す",
+  "Export older-version project data": "旧バージョンのプロジェクトデータを書き出す",
+  "This project was changed by an older version of iconic. Export any open work before reopening iconic to recover both saved copies.": "このプロジェクトは旧バージョンの iconic で変更されました。開いている作業を先に書き出してから iconic を開き直すと、保存済みの両方のデータを復元できます。"
 }

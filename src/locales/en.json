@@ -307,5 +307,8 @@
   "Reload stopped. Your work is still open.": "Reload stopped. Your work is still open.",
   "Use File → Save project in the schematic to export a backup.": "Use File → Save project in the schematic to export a backup.",
   "Save and reload": "Save and reload",
-  "The drawing changed while saving. Please try Save and reload again.": "The drawing changed while saving. Please try Save and reload again."
+  "The drawing changed while saving. Please try Save and reload again.": "The drawing changed while saving. Please try Save and reload again.",
+  "Export current project data": "Export current project data",
+  "Export older-version project data": "Export older-version project data",
+  "This project was changed by an older version of iconic. Export any open work before reopening iconic to recover both saved copies.": "This project was changed by an older version of iconic. Export any open work before reopening iconic to recover both saved copies."
 }

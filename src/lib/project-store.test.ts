@@ -110,14 +110,16 @@ describe('real Couchbase Lite project storage', () => {
     const bad = await create(catalog, 'Unreadable drawing');
     await bad.close();
 
-    // Simulate data accepted by an earlier app release.
+    // Simulate an unreadable current head. Real version-1 migrations are covered
+    // separately in project-asset-storage.test.ts.
     const raw = '{ "kind":"av-schematic", "version":1, "nodes":[null], "edges":[] }';
-    const database = await Database.open<{ documents: { payload: string } }>({
-      name: projectDatabaseName(bad.entry.id), version: 1, collections: { documents: {} },
+    const database = await Database.open<{ documents: { kind: string; payload: string; encoding: string } }>({
+      name: projectDatabaseName(bad.entry.id), version: 2, collections: { documents: { indexes: ['kind'] } },
     });
     const docs = database.collections.documents;
-    const head = (await docs.getDocument(DocID('head')))!;
+    const head = (await docs.getDocument(DocID('asset-head-v1')))!;
     head.payload = raw;
+    head.encoding = 'original-json';
     await docs.save(head);
     database.close();
 
