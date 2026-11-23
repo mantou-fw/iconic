@@ -59,18 +59,48 @@ test('read failure prevents import and is reported as an MCP error', async () =>
   expect(reply.content[0].text).toContain('No canvas connected');
 });
 
-test('real stdio server advertises 17 tools, non-destructive room defaults, sizes and both prompts', async () => {
+test('real stdio server advertises project reads, non-destructive room defaults, sizes and both prompts', async () => {
   const client = new Client({ name: 'test', version: '1' });
   clients.push(client);
   await client.connect(new StdioClientTransport({ command: process.execPath, args: [fileURLToPath(new URL('../mcp/server.mjs', import.meta.url))] }));
   const { tools } = await client.listTools();
-  expect(tools).toHaveLength(17);
+  expect(tools.map(tool => tool.name)).toEqual(expect.arrayContaining(['get_project_context', 'get_project_object', 'list_devices', 'get_room']));
   const room = tools.find(tool => tool.name === 'build_room');
   expect(room.inputSchema.properties.clearFirst.default).toBe(false);
   expect(room.inputSchema.properties.items.items.properties.size).toBeDefined();
   expect((await client.listPrompts()).prompts.map(prompt => prompt.name)).toEqual(['product_from_datasheet', 'room_from_image']);
   const prompt = await client.getPrompt({ name: 'room_from_image', arguments: { image: 'photo.jpg' } });
   expect(prompt.messages[0].content.text).toContain('Never claim a photo provides exact measurements');
+});
+
+test('project reads preserve exact IDs across stdio and return the canvas result', async () => {
+  const commands = [];
+  const server = createServer(async (req, res) => {
+    let body = '';
+    for await (const chunk of req) body += chunk;
+    const { command } = JSON.parse(body);
+    commands.push(command);
+    res.setHeader('Content-Type', 'application/json');
+    const detail = command.type === 'get_project_context'
+      ? { version: 1, nodes: [], cables: [], room: { items: [] } }
+      : { version: 1, kind: command.kind, id: command.id, found: false, object: null };
+    res.end(JSON.stringify({ type: 'ack', ok: true, detail }));
+  });
+  await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
+  try {
+    const client = new Client({ name: 'project-read-test', version: '1' });
+    clients.push(client);
+    await client.connect(new StdioClientTransport({
+      command: process.execPath,
+      args: [fileURLToPath(new URL('../mcp/server.mjs', import.meta.url))],
+      env: { AV_CANVAS_URL: `http://127.0.0.1:${server.address().port}` },
+    }));
+    const summary = await client.callTool({ name: 'get_project_context', arguments: {} });
+    expect(JSON.parse(summary.content[0].text)).toMatchObject({ version: 1, nodes: [] });
+    const missing = await client.callTool({ name: 'get_project_object', arguments: { kind: 'node', id: ' exact ID ' } });
+    expect(JSON.parse(missing.content[0].text)).toMatchObject({ id: ' exact ID ', found: false, object: null });
+    expect(commands).toEqual([{ type: 'get_project_context' }, { type: 'get_project_object', kind: 'node', id: ' exact ID ' }]);
+  } finally { await new Promise(resolve => server.close(resolve)); }
 });
 
 test('connection checker forwards a custom canvas URL into its MCP child', async () => {

@@ -58,6 +58,24 @@ server.registerTool(
 );
 
 server.registerTool(
+  "get_project_context",
+  {
+    description: "Read the active project's schematic, freehand drawings, cable endpoints and room. Image payloads are omitted. This tool does not modify the project.",
+    inputSchema: {},
+  },
+  async () => text((await call({ type: "get_project_context" })).detail),
+);
+
+server.registerTool(
+  "get_project_object",
+  {
+    description: "Read one schematic node, cable or room item by its stable ID. Returns found=false for a missing object.",
+    inputSchema: { kind: z.enum(["node", "cable", "room-item"]), id: z.string().max(20000).refine(id => id.trim().length > 0) },
+  },
+  async (args) => text((await call({ type: "get_project_object", ...args })).detail),
+);
+
+server.registerTool(
   "add_zone",
   {
     title: "Add a zone",
