@@ -21,11 +21,16 @@ export async function handleCanvasRequest(request: Request) {
     const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
     let result;
     switch (body.action) {
-      case 'poll': result = await canvasBroker.poll(body.canvasId, request.signal); break;
+      case 'poll': result = await canvasBroker.poll(body.canvasId, request.signal, body.documentId); break;
       case 'command':
         try { validateActions([body.command]); } catch (error) { throw Object.assign(error as Error, { status: 400 }); }
         result = await canvasBroker.command(body.command); break;
-      case 'reply': canvasBroker.reply(body.canvasId, body.id, body.reply); result = { ok: true }; break;
+      case 'reply': canvasBroker.reply(body.canvasId, body.id, body.reply, body.documentId); result = { ok: true }; break;
+      case 'execution-context': result = canvasBroker.executionContext(); break;
+      case 'execution-status': result = canvasBroker.executionStatus(body.scope, body.id); break;
+      case 'execute':
+        try { validateActions(body.commands); } catch (error) { throw Object.assign(error as Error, { status: 400 }); }
+        result = canvasBroker.execute(body.scope, body.id, body.commands); break;
       default: throw Object.assign(new Error('Unknown canvas action'), { status: 400 });
     }
     return Response.json(result, { headers: { 'Cache-Control': 'no-store' } });

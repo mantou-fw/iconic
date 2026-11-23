@@ -4,10 +4,14 @@ export function canvasEndpoint(base = process.env.AV_CANVAS_URL ?? 'http://local
   return new URL('/api/canvas', url).href;
 }
 export async function call(command) {
+  return canvasRequest({ action: 'command', command });
+}
+
+export async function canvasRequest(body) {
   const endpoint = canvasEndpoint();
   let response;
   try {
-    response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'command', command }), signal: AbortSignal.timeout(15000) });
+    response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(15000) });
   } catch {
     throw new Error(`Cannot reach the canvas at ${endpoint}. Open iconic, or run npm run dev and open the web editor.`);
   }

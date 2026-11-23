@@ -3,10 +3,10 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import { randomUUID } from "node:crypto";
 
-import { call } from "./transport.mjs";
+import { call, canvasRequest } from "./transport.mjs";
 import { registerImportTools } from "./import-tools.mjs";
-const push = call;
 
 const text = (value         ) => ({
   content: [
@@ -42,6 +42,42 @@ const position = z
 
 const server = new McpServer({ name: "av-schematic", version: "1.0.0" });
 registerImportTools(server, call);
+
+const executionKey = {
+  scope: z.string().uuid().describe("Active execution scope returned by get_canvas_execution_context"),
+  id: z.string().regex(/^\d{13}-[\w-]{1,80}$/).describe("Reuse this exact execution ID to query or resume the same batch"),
+};
+const builderExecution = z.object(executionKey).optional().describe("Pass the same scope and ID from get_canvas_execution_context to track and safely resume this build");
+
+async function runBuilder(commands, execution, readback) {
+  if (execution && commands.length) return text(await canvasRequest({ action: "execute", ...execution, commands }));
+  const completed = [];
+  for (const [index, command] of commands.entries()) {
+    try { await call(command); }
+    catch (error) {
+      return failed(JSON.stringify({ completed, stoppedAt: index, command: command.type,
+        message: error instanceof Error ? error.message : String(error),
+        recovery: "Read the current project before retrying. Use a tracked execution for replay-safe batches." }));
+    }
+    completed.push({ index, command: command.type });
+  }
+  return readback();
+}
+
+server.registerTool("get_canvas_execution_context", {
+  description: "Get the active drawing scope and a fresh execution ID. Read the drawing before submitting edits. Retain both values until the outcome is known.",
+  inputSchema: {},
+}, async () => text({ ...await canvasRequest({ action: "execution-context" }), id: `${Date.now()}-${randomUUID()}` }));
+
+server.registerTool("execute_canvas_batch", {
+  description: "Run validated local AV canvas commands in order. Replay the same scope, ID and commands to resume without applying completed steps again. Pass clear or delete commands only when explicitly requested.",
+  inputSchema: { ...executionKey, commands: z.array(z.record(z.string(), z.unknown())).min(1).max(200) },
+}, async ({ scope, id, commands }) => text(await canvasRequest({ action: "execute", scope, id, commands })));
+
+server.registerTool("get_canvas_execution_status", {
+  description: "Read a tracked canvas batch and its per-command outcomes. Read the drawing before deciding what to do if an outcome remains unresolved.",
+  inputSchema: executionKey,
+}, async ({ scope, id }) => text(await canvasRequest({ action: "execution-status", scope, id })));
 
 server.registerTool(
   "list_devices",
@@ -304,6 +340,7 @@ server.registerTool(
       depth: z.number().optional(),
       height: z.number().optional(),
       clearFirst: z.boolean().default(false).describe("Clear existing items only when explicitly requested"),
+      execution: builderExecution,
       items: z.array(
         z.object({
           kind: itemKind,
@@ -320,11 +357,11 @@ server.registerTool(
       ),
     },
   },
-  async ({ items, clearFirst, ...room }) => {
-    await push({ type: "set_room", ...room, clearItems: clearFirst });
-    for (const item of items) await push({ type: "add_room_item", ...item });
-    return text(await call({ type: "get_room" }));
-  },
+  async ({ items, clearFirst, execution, ...room }) => runBuilder(
+    [{ type: "set_room", ...room, clearItems: clearFirst }, ...items.map(item => ({ type: "add_room_item", ...item }))],
+    execution,
+    async () => text(await call({ type: "get_room" })),
+  ),
 );
 
 server.registerTool(
@@ -371,23 +408,23 @@ server.registerTool(
         )
         .optional(),
       clearFirst: z.boolean().default(false).describe("Wipe the canvas first"),
+      execution: builderExecution,
     },
   },
-  async ({ zones = [], devices = [], cables = [], clearFirst }) => {
-    if (clearFirst) await push({ type: "clear" });
-    for (const zone of zones) await push({ type: "add_zone", ...zone });
-    for (const device of devices) await push({ type: "add_device", ...device });
-    for (const cable of cables) await push({ type: "connect", ...cable });
-    const state = await call({ type: "get_state" });
-    return text({
-      built: {
-        zones: zones.length,
-        devices: devices.length,
-        cables: cables.length,
-      },
-      canvas: { devices: state.devices ?? [], cables: state.cables ?? [] },
-    });
-  },
+  async ({ zones = [], devices = [], cables = [], clearFirst, execution }) => runBuilder(
+    [...(clearFirst ? [{ type: "clear" }] : []),
+      ...zones.map(zone => ({ type: "add_zone", ...zone })),
+      ...devices.map(device => ({ type: "add_device", ...device })),
+      ...cables.map(cable => ({ type: "connect", ...cable }))],
+    execution,
+    async () => {
+      const state = await call({ type: "get_state" });
+      return text({
+        built: { zones: zones.length, devices: devices.length, cables: cables.length },
+        canvas: { devices: state.devices ?? [], cables: state.cables ?? [] },
+      });
+    },
+  ),
 );
 
 await server.connect(new StdioServerTransport());

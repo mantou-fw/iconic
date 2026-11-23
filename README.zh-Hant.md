@@ -101,7 +101,7 @@ codex mcp add av-schematic -- node /absolute/path/to/iconic/mcp/server.mjs
 
 向 Codex 提出要求：**「使用 $av-schematic，先讀取現有畫布，再加入一套會議室 AV 系統，保留原有內容。」**
 
-MCP 伺服器提供 19 個工具，用於專案查閱、設備、分區、接線、機櫃、自動排版及 3D 房間。編輯前先讀取畫布，只有在明確要求時才清空或刪除內容。JSON 及 PNG／SVG／PDF／HTML／XLSX 匯出由 app 手動操作。詳見 [MCP 設定](doc/mcp-integration.md)、[Agent 發佈說明](doc/agent-distribution.md)及 [Skill](.agents/skills/av-schematic/SKILL.md)。
+MCP 伺服器提供 22 個工具，用於專案查閱、設備、分區、接線、機櫃、自動排版及 3D 房間。編輯前先讀取畫布，只有在明確要求時才清空或刪除內容。JSON 及 PNG／SVG／PDF／HTML／XLSX 匯出由 app 手動操作。詳見 [MCP 設定](doc/mcp-integration.md)、[Agent 發佈說明](doc/agent-distribution.md)及 [Skill](.agents/skills/av-schematic/SKILL.md)。
 
 將完整產品型號或 datasheet 交給 AI，即可透過 `import_product` 建立含已確認連接埠及來源的設備節點。將房間照片或平面圖交給支援圖片辨識的 AI，即可透過 `import_room_layout` 產生 3D 佈局；可附上已知尺寸，否則會明確標示估算及假設。查閱資料及圖片辨識由 AI 用戶端負責。預設保留現有內容，JSON 專案會儲存房間、來源及比例假設。詳見[匯入流程](.agents/skills/av-schematic/references/imports.md)。
 

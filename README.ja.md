@@ -101,7 +101,7 @@ codex mcp add av-schematic -- node /absolute/path/to/iconic/mcp/server.mjs
 
 Codex への依頼例：**「$av-schematic を使い、現在のキャンバスを読み取ってから、既存の内容を残して会議室の AV システムを追加してください。」**
 
-MCP サーバーには、プロジェクトの参照、機器、ゾーン、ケーブル、ラック、レイアウト、3D ルーム用の 19 個のツールがあります。編集前にキャンバスを読み取り、削除・消去は明示的な指示がある場合のみ行います。JSON と PNG／SVG／PDF／HTML／XLSX の出力は、アプリで手動実行します。[MCP 設定](doc/mcp-integration.md)、[エージェントの配布](doc/agent-distribution.md)、[スキル](.agents/skills/av-schematic/SKILL.md)も参照してください。
+MCP サーバーには、プロジェクトの参照、機器、ゾーン、ケーブル、ラック、レイアウト、3D ルーム用の 22 個のツールがあります。編集前にキャンバスを読み取り、削除・消去は明示的な指示がある場合のみ行います。JSON と PNG／SVG／PDF／HTML／XLSX の出力は、アプリで手動実行します。[MCP 設定](doc/mcp-integration.md)、[エージェントの配布](doc/agent-distribution.md)、[スキル](.agents/skills/av-schematic/SKILL.md)も参照してください。
 
 正確な製品型番やデータシートを AI に渡すと、`import_product` で確認済みポートと出典を含む機器ノードを作成できます。画像を認識できる AI に部屋の写真や平面図を渡すと、`import_room_layout` で 3D レイアウトを作成できます。既知の寸法を指定するか、推定と仮定を明記して作成します。調査と画像の解釈は AI クライアントが行います。既存内容は標準で保持され、JSON プロジェクトには部屋、出典、縮尺の仮定も保存されます。[インポート手順](.agents/skills/av-schematic/references/imports.md)を参照してください。
 

@@ -22,7 +22,7 @@ Verify with `npm run mcp:check` while the app is open. It lists tools and reads 
 
 ## Tools
 
-The 19 tools are registered in `mcp/server.mjs` and `mcp/import-tools.mjs`; import schemas shared by the server and renderer live in `shared/ai-imports.mjs`. Tools cover listing devices, creating zones/devices/text/memos, product imports, connecting ports, deleting devices, layout, racks, room state/items, photo-derived room imports, clearing and batched system/room construction.
+The 22 tools are registered in `mcp/server.mjs` and `mcp/import-tools.mjs`; import schemas shared by the server and renderer live in `shared/ai-imports.mjs`. Tools cover listing devices, creating zones/devices/text/memos, product imports, connecting ports, deleting devices, layout, racks, room state/items, photo-derived room imports, clearing and batched system/room construction.
 
 Read the current drawing before editing. Preserve existing work unless the user requests removal. Create zones before devices and devices before cables. Use exact device tags and port labels; reuse tags across schematic, rack equipment and room items. Room measurements use metres.
 
@@ -64,3 +64,33 @@ The installer can install the skill through Vercel skills CLI 1.7.4, requiring N
 `get_project_context` returns version 1 with `nodes`, `cables`, and `room`. Each node has a stable ID, type, parent ID, position and object data. Positions are relative to the named parent or to the schematic canvas. Room items use metres in the room coordinate space. Rack equipment and room items use `deviceId` to refer to a schematic device. Each cable endpoint includes a node ID, port ID and available display label.
 
 `get_project_object` accepts a `kind` of `node`, `cable` or `room-item` and the exact `id` from the summary. It returns `{ version, kind, id, found, object }`. Missing objects return `found: false` and `object: null`. Image nodes return source metadata in both tools. Freehand nodes include points in targeted reads. Existing `list_devices` and `get_room` calls remain available.
+
+### Recover delayed command outcomes
+
+Read the project, then call `get_canvas_execution_context`. Keep the returned
+`scope` and `id` and pass them to `execute_canvas_batch` with the commands in
+order. To track one command, use a one-step batch. The `build_system` and
+`build_room` tools also accept these values under `execution`. Tracked requests
+return an execution snapshot immediately. Query `get_canvas_execution_status`
+with the same values for updates.
+
+| Outcome | Meaning |
+| --- | --- |
+| `pending` | The batch still has work. If `resumeRequired` is true, replay the exact original request to continue after a late acknowledgement. |
+| `completed` | Every step acknowledged successfully. Replaying the request returns the recorded outcome. |
+| `rejected` | A command failed validation or delivery, or the renderer rejected a step. Check the per-step replies before making further edits. |
+| `unresolved` | The renderer may already have applied a delivered command. Wait for a reply or inspect the drawing with `get_project_context`. Replaying the same ID never redelivers that step. |
+
+Steps run sequentially. Completed edits remain applied if a later step fails.
+Reusing an ID with different commands returns a conflict. Older untracked tools
+keep their successful output formats. Untracked builder errors include the
+steps that completed before the interruption.
+
+Execution records are stored in memory for ten minutes from the ID timestamp,
+with up to 64 batches per mounted drawing. A batch can include up to 200
+validated commands and 512 KiB of command data. Up to 512 KiB of reply data is
+retained per batch. Oversized replies are flagged as omitted while their
+outcomes remain visible. Changing or reopening the active drawing or restarting
+the server changes the scope. An old scope or expired ID cannot submit edits.
+If the outcome is still unclear at that point, inspect the drawing before
+creating a new execution.
