@@ -168,6 +168,7 @@
   "Create a blank project": "Create a blank project",
   "Open another project": "Open another project",
   "Untitled project": "Untitled project",
+  "Remove room item": "Remove room item",
   "Export failed.": "Export failed.",
   "That file isn't valid JSON.": "That file isn't valid JSON.",
   "That JSON isn't an AV schematic project file.": "That JSON isn't an AV schematic project file.",
