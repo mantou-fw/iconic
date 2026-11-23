@@ -53,6 +53,25 @@ test("counts a tightly spaced neighboring device even on a cable's first segment
   expect(crossings(tight.points, [source], { id: source.id, side: "right" })).toBeGreaterThan(0);
 });
 
+test("cuts off a candidate score once it can no longer beat the current route", () => {
+  const first = { x: 350, y: 0, w: 50, h: 100 };
+  const second = { x: 450, y: 0, w: 50, h: 100 };
+  let scoredSecond = false;
+  const counted = { ...second, get w() { scoredSecond = true; return second.w; } };
+  expect(crossings([from, to], [first, counted], undefined, undefined, 1)).toBe(1);
+  expect(scoredSecond).toBe(false);
+  expect(crossings([from, to], [first, counted])).toBe(2);
+});
+
+test("skips obstacle scoring when both axes are locked", () => {
+  let scored = false;
+  const counted = { ...remote, get w() { scored = true; return remote.w; } };
+  expect(avoidObstacles(from, to, "right", "left", [counted], 430, 190)).toEqual(
+    orthogonalRoute(from, to, "right", "left", 430, 190),
+  );
+  expect(scored).toBe(false);
+});
+
 test("preserves distinct fan-out routes and absolute coordinates in nested zones", () => {
   const shift = { x: 340, y: 60 };
   const inZone = <T extends { x: number; y: number }>(p: T) => ({ ...p, x: p.x + shift.x, y: p.y + shift.y });

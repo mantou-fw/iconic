@@ -79,7 +79,7 @@ server.registerTool(
   {
     title: "Add an AV device",
     description:
-      "Place a device block with its input and output ports. Give each port a signal class so cables are colour-coded correctly.",
+      "Place a device block and return its stable device ID and assigned tag. Give each port a signal class so cables are colour-coded correctly.",
     inputSchema: {
       tag: z.string().optional().describe('Reference designator, e.g. "DSP-01"'),
       name: z.string().optional().describe('Description, e.g. "Audio DSP"'),
@@ -91,8 +91,10 @@ server.registerTool(
       position,
     },
   },
-  async (args) =>
-    report(await call({ type: "add_device", ...args }), `Added ${args.tag ?? args.name ?? "device"}`),
+  async (args) => {
+    const reply = await call({ type: "add_device", ...args });
+    return report(reply, reply?.detail ?? `Added ${args.tag ?? args.name ?? "device"}`);
+  },
 );
 
 server.registerTool(

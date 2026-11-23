@@ -103,11 +103,11 @@ function unique<T>(items: T[], keyOf: (value: T) => string, path: string, field 
   });
 }
 
-function validHandle(node: StoredNode, handle: string | null | undefined, output: boolean) {
+type DeviceHandles = { in: Set<string>; out: Set<string> };
+
+function validHandle(node: StoredNode, handle: string | null | undefined, output: boolean, ports?: DeviceHandles) {
   if (node.type === "database") {
-    const direction = output ? "out" : "in";
-    if (node.data.ports) return node.data.ports.some((port) => port.id === handle && port.dir === direction);
-    return node.data.fields?.some((field, index) => (index % 2 === 1) === output && field.id === handle) ?? false;
+    return handle != null && (ports?.[output ? "out" : "in"].has(handle) ?? false);
   }
   if (node.type !== "shape" && node.type !== "icon-text") return false;
   if (!handle) return true;
@@ -122,22 +122,36 @@ export function validateGraph(project: ProjectShape) {
   unique(project.signals ?? [], (value) => value.key, "signals", "key");
 
   const byId = new Map(project.nodes.map((value) => [value.id, value]));
+  const nodeIndices = new Map(project.nodes.map((value, index) => [value.id, index]));
+  const devicePorts = new Map<string, DeviceHandles>();
   project.drawings?.forEach((value, index) => {
     if (byId.has(value.id)) invalid(`drawings[${index}].id`, "Identifier is already used.");
   });
 
   const verified = new Set<string>();
   project.nodes.forEach((value, index) => {
-    if (value.type === "database") unique(value.data.ports ?? [], (entry) => entry.id, `nodes[${index}].data.ports`);
+    if (value.type === "database") {
+      const handles: DeviceHandles = { in: new Set(), out: new Set() };
+      if (value.data.ports) {
+        unique(value.data.ports, (entry) => entry.id, `nodes[${index}].data.ports`);
+        for (const port of value.data.ports) handles[port.dir].add(port.id);
+      } else {
+        value.data.fields?.forEach((field, fieldIndex) => {
+          if (field.id) handles[fieldIndex % 2 === 1 ? "out" : "in"].add(field.id);
+        });
+      }
+      devicePorts.set(value.id, handles);
+    }
     if (value.type === "rack") unique(value.data.items ?? [], (entry) => entry.id, `nodes[${index}].data.items`);
     const trail = new Set<string>();
     let cursor: StoredNode | undefined = value;
     while (cursor && !verified.has(cursor.id)) {
       if (trail.has(cursor.id)) invalid(`nodes[${index}].parentId`, "Parent references form a cycle.");
       trail.add(cursor.id);
+      const cursorIndex = nodeIndices.get(cursor.id);
       const parentId: string | undefined = cursor.parentId;
       cursor = parentId ? byId.get(parentId) : undefined;
-      if (parentId && cursor?.type !== "zone") invalid(`nodes[${index}].parentId`, "Parent must reference an existing zone.");
+      if (parentId && cursor?.type !== "zone") invalid(`nodes[${cursorIndex}].parentId`, "Parent must reference an existing zone.");
     }
     for (const key of trail) verified.add(key);
   });
@@ -145,7 +159,7 @@ export function validateGraph(project: ProjectShape) {
   project.edges.forEach((value, index) => {
     const source = byId.get(value.source) ?? invalid(`edges[${index}].source`, "Connection references a missing node.");
     const target = byId.get(value.target) ?? invalid(`edges[${index}].target`, "Connection references a missing node.");
-    if (!validHandle(source, value.sourceHandle, true)) invalid(`edges[${index}].sourceHandle`, "Connection references a missing or incompatible port.");
-    if (!validHandle(target, value.targetHandle, false)) invalid(`edges[${index}].targetHandle`, "Connection references a missing or incompatible port.");
+    if (!validHandle(source, value.sourceHandle, true, devicePorts.get(source.id))) invalid(`edges[${index}].sourceHandle`, "Connection references a missing or incompatible port.");
+    if (!validHandle(target, value.targetHandle, false, devicePorts.get(target.id))) invalid(`edges[${index}].targetHandle`, "Connection references a missing or incompatible port.");
   });
 }

@@ -46,8 +46,11 @@ function exits(a: Point, b: Point, rect: Rect, side: Side) {
   }
 }
 
-/** Only a cable's first and last segments may use their own endpoint clearance. */
-export function crossings(points: Point[], obstacles: Rect[], source?: Endpoint, target?: Endpoint): number {
+/**
+ * Only the first and last segments may use their own endpoint clearance.
+ * A search candidate can stop at the current best score, since ties keep the existing route.
+ */
+export function crossings(points: Point[], obstacles: Rect[], source?: Endpoint, target?: Endpoint, limit = Infinity): number {
   let count = 0;
   const last = points.length - 2;
   for (const rect of obstacles) {
@@ -58,7 +61,7 @@ export function crossings(points: Point[], obstacles: Rect[], source?: Endpoint,
       if (!hits(a, b, clearance)) continue;
       if (i === 0 && source?.id && rect.id === source.id && exits(a, b, rect, source.side)) continue;
       if (i === last && target?.id && rect.id === target.id && exits(b, a, rect, target.side)) continue;
-      count++;
+      if (++count >= limit) return count;
     }
   }
   return count;
