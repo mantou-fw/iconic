@@ -307,5 +307,8 @@
   "Reload stopped. Your work is still open.": "已停止重新載入。你的工作仍然開啟。",
   "Use File → Save project in the schematic to export a backup.": "請在接線圖選擇「檔案 → 儲存專案」匯出備份。",
   "Save and reload": "儲存並重新載入",
-  "The drawing changed while saving. Please try Save and reload again.": "儲存期間圖面有變更，請再次選擇「儲存並重新載入」。"
+  "The drawing changed while saving. Please try Save and reload again.": "儲存期間圖面有變更，請再次選擇「儲存並重新載入」。",
+  "Export current project data": "匯出目前版本的專案資料",
+  "Export older-version project data": "匯出舊版應用程式的專案資料",
+  "This project was changed by an older version of iconic. Export any open work before reopening iconic to recover both saved copies.": "此專案已被舊版 iconic 修改。請先匯出目前開啟的工作，再重新開啟 iconic 以復原兩份已儲存的資料。"
 }

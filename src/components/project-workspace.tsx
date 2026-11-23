@@ -7,7 +7,7 @@ import { blankProject } from '@/lib/canvas-project';
 import { useT } from '@/lib/i18n';
 import { downloadBlob } from '@/lib/download';
 
-type Recovery = { entry?: ProjectEntry; name: string; raw?: string; message: string };
+type Recovery = { entry?: ProjectEntry; name: string; raw?: string; olderAppRaw?: string; message: string };
 
 type OpenProject = { session: ProjectSession; initial: ProjectFile; generation: number };
 
@@ -53,6 +53,7 @@ export function ProjectWorkspace() {
         setCurrent(next);
       } catch (cause) {
         const raw = (await openingSession?.readRaw().catch(() => undefined)) ?? legacyRaw;
+        const olderAppRaw = await openingSession?.readLegacyEditsRaw().catch(() => undefined);
         await openingSession?.close();
         const entries = await nextCatalog.list();
         const activeId = await nextCatalog.activeId();
@@ -60,7 +61,7 @@ export function ProjectWorkspace() {
         if (disposed) { nextCatalog.close(); return; }
         setCatalog(nextCatalog);
         setEntries(entries);
-        setRecovery({ entry, name: entry?.name ?? legacyName, raw, message: cause instanceof Error ? cause.message : String(cause) });
+        setRecovery({ entry, name: entry?.name ?? legacyName, raw, olderAppRaw, message: cause instanceof Error ? cause.message : String(cause) });
       }
     })().catch(async error => {
       await openingSession?.close();
@@ -140,8 +141,14 @@ export function ProjectWorkspace() {
         {recovery.raw !== undefined && (
           <button className="underline" onClick={() => {
             const name = recovery.name.replace(/[^\p{L}\p{N} ._-]/gu, '_');
-            downloadBlob(new Blob([recovery.raw!], { type: 'application/json' }), `${name}-original.json`);
-          }}>{t('Export original project data')}</button>
+            downloadBlob(new Blob([recovery.raw!], { type: 'application/json' }), `${name}-${recovery.olderAppRaw !== undefined ? 'current' : 'original'}.json`);
+          }}>{t(recovery.olderAppRaw !== undefined ? 'Export current project data' : 'Export original project data')}</button>
+        )}
+        {recovery.olderAppRaw !== undefined && (
+          <button className="underline" onClick={() => {
+            const name = recovery.name.replace(/[^\p{L}\p{N} ._-]/gu, '_');
+            downloadBlob(new Blob([recovery.olderAppRaw!], { type: 'application/json' }), `${name}-older-version.json`);
+          }}>{t('Export older-version project data')}</button>
         )}
         <button className="underline" disabled={busy}
           onClick={() => void run(async () => switchTo(await catalog.create(t('Untitled project'), blankProject())))}>
