@@ -50,11 +50,13 @@ import {
 import { ShapeNode, makeShapeData } from "@/components/nodes/shape-node";
 import { FileMenu } from "@/components/file-menu";
 import { DrawingReview } from "@/components/drawing-review";
+import { ReusableLibraryDialog } from "@/components/reusable-library-dialog";
+import { deviceDefinition, instantiateDevice, templateItems, type LibraryContent } from "@/lib/reusable-library";
 import { checkDrawing, type DrawingFinding } from "@/lib/drawing-checks";
 import { useAIBridge, type AICommand, type AIReply } from "@/lib/ai-bridge";
 import { readProjectContext, readProjectObject } from "@/lib/project-read";
 import { parseProject, type ProjectFile } from "@/lib/project";
-import { captureCanvas } from "@/lib/canvas-project";
+import { blankProject, captureCanvas } from "@/lib/canvas-project";
 import type { ProjectSession } from "@/lib/project-store";
 import { prepareRoomImport } from "@/lib/ai-imports";
 import { productSchema } from "../../shared/ai-imports.mjs";
@@ -256,6 +258,7 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady,
   const rf = useReactFlow();
   const [review, setReview] = useState<"drawing" | "xlsx" | "html" | "pdf" | "png" | "svg" | null>(null);
   const [roomSelection, setRoomSelection] = useState<string>();
+  const [libraryOpen, setLibraryOpen] = useState(false);
   const paneRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingImagePos = useRef<Point | null>(null);
@@ -1030,6 +1033,47 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady,
     if (targets.length) void rf.fitView({ nodes: targets.map((id) => ({ id })), maxZoom: 1.25, duration: 250 });
   };
 
+  const captureLibraryDevice = (id: string) => {
+    const node = rf.getNode(id);
+    if (node?.type !== "database") throw new Error("Device not found.");
+    return deviceDefinition(normalizeDeviceData(node.data), signals);
+  };
+  const useLibraryEntry = async (content: LibraryContent, name: string, target?: string) => {
+    if (content.kind === "room") {
+      const project = blankProject();
+      project.room = structuredClone(content.room);
+      project.roomItems = templateItems(content.items, nextId);
+      await onImport(project, name);
+      return;
+    }
+    if (target) {
+      const node = rf.getNode(target);
+      if (node?.type !== "database") throw new Error("Device not found.");
+      const existing = normalizeDeviceData(node.data);
+      const next = instantiateDevice(content.device, existing.tag, nextId, existing.ports);
+      const valid = new Set(next.ports.map(port => port.id));
+      if (rf.getEdges().some(edge => (edge.source === target && !valid.has(edge.sourceHandle ?? ""))
+        || (edge.target === target && !valid.has(edge.targetHandle ?? "")))) {
+        throw new Error("This version would remove a connected port.");
+      }
+      setNodes(current => current.map(item => item.id === target ? { ...item, data: next } : item));
+    } else {
+      const id = nextId();
+      const at = rf.screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
+      const instance = instantiateDevice(content.device, content.device.tag, nextId);
+      setNodes(current => {
+        const used = new Set(deviceIdentities(current).map(device => tagKey(device.tag)));
+        const tag = allocateTag(used, content.device.tag);
+        const offset = (used.size % 5) * 32;
+        return [...current.map(node => node.selected ? { ...node, selected: false } : node), {
+          id, type: "database", position: { x: at.x + offset, y: at.y + offset }, selected: true,
+          data: { ...instance, tag },
+        }];
+      });
+    }
+    setSignals(current => [...current, ...content.signals.filter(signal => !current.some(existing => existing.key === signal.key))]);
+  };
+
   const toggleSnap = useCallback(
     () => setSettings((s) => ({ ...s, snapToGrid: !s.snapToGrid })),
     [],
@@ -1771,6 +1815,7 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady,
         <FileMenu
           onProjects={onProjects}
           onReview={() => setReview("drawing")}
+          onLibrary={() => setLibraryOpen(true)}
           onOpen={() => projectInputRef.current?.click()}
           onSaveJson={onSaveJson}
           onExportXlsx={() => requestExport("xlsx")}
@@ -1783,6 +1828,10 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady,
           onThemeChange={setTheme}
           aiStatus={aiStatus}
         />
+        {libraryOpen && <ReusableLibraryDialog devices={identities} onClose={() => setLibraryOpen(false)}
+          captureDevice={captureLibraryDevice}
+          captureRoom={() => ({ kind: "room", room: structuredClone(room), items: structuredClone(roomItems) })}
+          onUse={useLibraryEntry} />}
         {review && <DrawingReview findings={findings} format={review === "drawing" ? undefined : review}
           onClose={() => setReview(null)}
           onProceed={() => { setReview(null); if (review !== "drawing") exportFormat(review); }}
