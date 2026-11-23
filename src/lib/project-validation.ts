@@ -56,6 +56,7 @@ const node = z.discriminatedUnion("type", [
 const edge = z.looseObject({
   id, source: id, target: id, sourceHandle: id.nullish(), targetHandle: id.nullish(),
   label: text.optional(), midX: number.optional(), midY: number.optional(),
+  reviewExplanation: text.optional(),
   direction: z.enum(["forward", "backward", "both"]).optional(),
 });
 const drawing = z.looseObject({ id, points: z.array(position).min(1), color: text, strokeWidth: positive });

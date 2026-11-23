@@ -40,6 +40,7 @@ export interface SchematicEdge {
   midY?: number;
   /** Which end(s) get an arrowhead; only meaningful on plain arrow edges. */
   direction?: "forward" | "backward" | "both";
+  reviewExplanation?: string;
 }
 
 export interface Drawing {

@@ -667,12 +667,14 @@ const KIND_GROUPS: { title: string; match: (k: ItemKind) => boolean }[] = [
 ];
 
 export function RoomView({
+  initialSelection,
   room,
   items,
   onClose,
   onMoveItem,
   onDeleteItem,
 }: {
+  initialSelection?: string;
   room: RoomSpec;
   items: RoomItem[];
   onClose: () => void;
@@ -684,7 +686,7 @@ export function RoomView({
   ) => void;
 }) {
   const t = useT();
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(initialSelection ?? null);
   const [mode, setMode] = useState<"3d" | "ceiling">("3d");
   const [gizmo, setGizmo] = useState<"translate" | "rotate">("translate");
   const [view, setView] = useState<{ preset: ViewPreset; nonce: number }>({
