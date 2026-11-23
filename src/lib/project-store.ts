@@ -122,12 +122,14 @@ async function migrateInline(database: ProjectDB, codec: ProjectAssetCodec) {
 
 /** One open project and its expected revision. A stale editor never overwrites a newer head. */
 export class ProjectSession {
+  lastEdited: string;
   private pending: Promise<unknown> = Promise.resolve();
   private sequence: number;
   private closed = false;
   private legacyConflict = false;
   private legacyListener?: ListenerToken;
   private constructor(readonly entry: ProjectEntry, private database: ProjectDB, head: ProjectFields, private codec: ProjectAssetCodec, private legacySequence = 0, private migrationError?: unknown) {
+    this.lastEdited = head.updatedAt;
     this.sequence = head.sequence;
   }
 
@@ -325,6 +327,7 @@ export class ProjectSession {
       await this.checkLegacy();
       await this.database.collections.documents.updateMultiple({ save: [head, ...assetWrites], bestEffort: false });
       this.sequence = head.sequence;
+      this.lastEdited = head.updatedAt;
       assets.forEach(asset => this.codec.markStored(asset));
       await this.checkLegacy();
     });
@@ -420,6 +423,7 @@ export class ProjectSession {
       await this.checkLegacy();
       await this.database.collections.documents.updateMultiple({ save: [head, ...versions, ...assetWrites], bestEffort: false });
       this.sequence = head.sequence;
+      this.lastEdited = head.updatedAt;
       assets.forEach(asset => this.codec.markStored(asset));
       await this.checkLegacy();
     });
@@ -450,6 +454,7 @@ export class ProjectSession {
       await this.checkLegacy();
       await collection.updateMultiple({ save: [head, ...versions, ...assetWrites], bestEffort: false });
       this.sequence = head.sequence;
+      this.lastEdited = head.updatedAt;
       assets.forEach(asset => this.codec.markStored(asset));
       await this.checkLegacy();
       return restored;

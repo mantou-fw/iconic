@@ -208,4 +208,15 @@ project, a stale editor rejects the conflicting save and lets you download its
 open work before reopening. The project manager keeps a backup of the current
 work before restoring an earlier version. Clearing site data removes the local
 catalog and history. Drawing JSON includes the current project and embedded
-images, while named versions remain in local storage.
+images. In **Projects and versions**, use **Export project archive** to save
+both the current drawing and its retained versions, including embedded
+images. **Import project archive** opens that backup as an independent project.
+
+The project list supports searching, renaming, and archiving. Restoring an
+archived project makes it available again. Duplication copies the working
+drawing to a new project with its own history.
+
+Preview a version to compare its contents against the current drawing before
+restoring. To manage retention, select the versions to remove and confirm the
+list. The current drawing and unselected versions are kept, and at least one
+version must remain.

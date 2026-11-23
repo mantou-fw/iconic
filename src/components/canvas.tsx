@@ -226,9 +226,10 @@ type CanvasProps = {
   onProjects: () => void;
   onImport: (project: ProjectFile, name: string) => Promise<void>;
   onReady: (handle: CanvasHandle | null) => void;
+  onSaved: (session: ProjectSession) => Promise<void>;
 };
 
-function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady }: CanvasProps) {
+function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady, onSaved }: CanvasProps) {
   const t = useT();
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -423,7 +424,9 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
     const generation = editGeneration.current;
     setSaveStatus('saving');
     try {
+      const before = session.lastEdited;
       await session.save(capture());
+      if (before !== session.lastEdited) await onSaved(session).catch(() => undefined);
       if (generation === editGeneration.current) setSaveStatus('saved');
       setSaveError('');
     } catch (error) {
@@ -431,7 +434,7 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
       setSaveError(error instanceof Error ? error.message : String(error));
       throw error;
     }
-  }, [session, capture]);
+  }, [session, capture, onSaved]);
 
   useEffect(() => {
     if (!loaded) return;
