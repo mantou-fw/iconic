@@ -21,6 +21,7 @@ test.each([
   [{ version: 99 }, /Unsupported project format version.*99/],
   [{ nodes: [zone("z"), zone("z")] }, /nodes\[1\].id/],
   [{ nodes: [zone("z", "missing")] }, /nodes\[0\].parentId/],
+  [{ nodes: [zone("child", "parent"), zone("parent", "missing")] }, /nodes\[1\].parentId/],
   [{ nodes: [zone("z", "q"), zone("q", "z")] }, /cycle/],
   [{ nodes: [{ ...zone("z"), position: { x: "0", y: 2 } }] }, /nodes\[0\].position.x/],
   [{ nodes: [{ ...zone("z"), type: "unknown" }] }, /nodes\[0\].type/],
