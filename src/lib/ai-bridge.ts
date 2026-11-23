@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { validateActions } from "../../desktop/commands.mjs";
+import { flushSync } from "react-dom";
 import type { ProjectObjectKind } from "./project-read";
 
 import type { SignalType } from "./signal-types";
@@ -119,26 +120,35 @@ export function useAIBridge(handle: (cmd: AICommand) => AIReply | void) {
     const key = "iconic-mcp-canvas-id";
     const canvasId = sessionStorage.getItem(key) ?? crypto.randomUUID();
     sessionStorage.setItem(key, canvasId);
-    const post = async (body: unknown) => {
-      const response = await fetch('/api/canvas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: abort.signal });
+    // Canvas remounts when opening another project or restoring a version.
+    const documentId = crypto.randomUUID();
+    const post = async (body: Record<string, unknown>, reply = false) => {
+      const response = await fetch('/api/canvas', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...body, canvasId, documentId }), signal: AbortSignal.any([abort.signal, AbortSignal.timeout(25_000)]) });
+      if (reply && [409, 410].includes(response.status)) return null;
       if (!response.ok) throw new Error('Canvas bridge disconnected');
       return response.json();
     };
     const run = async () => {
+      let acknowledgement: { id: string; reply: AIReply } | undefined;
       while (!abort.signal.aborted) {
         try {
           setStatus('live');
-          const request = await post({ action: 'poll', canvasId });
-          if (!request) continue;
-          let reply: AIReply;
-          try {
-            validateActions([request.command]);
-            reply = handler.current(request.command) ?? { type: 'error', command: request.command.type, ok: false, message: 'Unsupported command' };
-            await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-          } catch (error) {
-            reply = { type: 'error', command: request.command.type, ok: false, message: error instanceof Error ? error.message : String(error) };
+          if (!acknowledgement) {
+            const request = await post({ action: 'poll' });
+            if (!request || abort.signal.aborted) continue;
+            let reply: AIReply;
+            try {
+              validateActions([request.command]);
+              const result = flushSync(() => handler.current(request.command));
+              reply = result ?? { type: 'error', command: request.command.type, ok: false, message: 'Unsupported command' };
+            } catch (error) {
+              reply = { type: 'error', command: request.command.type, ok: false, message: error instanceof Error ? error.message : String(error) };
+            }
+            acknowledgement = { id: request.id, reply };
           }
-          await post({ action: 'reply', canvasId, id: request.id, reply });
+          await post({ action: 'reply', ...acknowledgement }, true);
+          acknowledgement = undefined;
         } catch {
           if (abort.signal.aborted) break;
           setStatus('connecting');

@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { createServer } from 'node:http';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import { randomUUID } from 'node:crypto';
 import { registerImportTools } from '../mcp/import-tools.mjs';
 
 const clients = [];
@@ -119,5 +120,40 @@ test('connection checker forwards a custom canvas URL into its MCP child', async
     });
     expect(stdout).toContain('Connected: 0 devices, 0 cables');
     expect(requests).toEqual([{ action: 'command', command: { type: 'get_state' } }]);
+  } finally { await new Promise(resolve => server.close(resolve)); }
+});
+
+test('tracked MCP builders forward a reusable execution key and preserve the batch outcome', async () => {
+  const scope = randomUUID();
+  const requests = [];
+  const server = createServer(async (req, res) => {
+    let body = '';
+    for await (const chunk of req) body += chunk;
+    const request = JSON.parse(body);
+    requests.push(request);
+    res.setHeader('Content-Type', 'application/json');
+    if (request.action === 'execution-context') { res.end(JSON.stringify({ scope })); return; }
+    res.end(JSON.stringify({ scope, id: request.id, state: 'pending', steps: [{ index: 0, state: 'pending' }] }));
+  });
+  await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
+  try {
+    const client = new Client({ name: 'execution-test', version: '1' });
+    clients.push(client);
+    await client.connect(new StdioClientTransport({
+      command: process.execPath,
+      args: [fileURLToPath(new URL('../mcp/server.mjs', import.meta.url))],
+      env: { AV_CANVAS_URL: `http://127.0.0.1:${server.address().port}` },
+    }));
+    const context = await client.callTool({ name: 'get_canvas_execution_context', arguments: {} });
+    const execution = JSON.parse(context.content[0].text);
+    expect(execution).toMatchObject({ scope, id: expect.stringMatching(/^\d{13}-/) });
+    const build = await client.callTool({ name: 'build_room', arguments: { items: [], name: 'Plan', execution } });
+    expect(JSON.parse(build.content[0].text)).toMatchObject({ id: execution.id, state: 'pending' });
+    await client.callTool({ name: 'get_canvas_execution_status', arguments: execution });
+    expect(requests).toEqual([
+      { action: 'execution-context' },
+      { action: 'execute', ...execution, commands: [{ type: 'set_room', name: 'Plan', clearItems: false }] },
+      { action: 'execution-status', ...execution },
+    ]);
   } finally { await new Promise(resolve => server.close(resolve)); }
 });
