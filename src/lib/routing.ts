@@ -114,7 +114,7 @@ export function avoidObstacles(
   endpoints?: { sourceId?: string; targetId?: string },
 ) {
   const base = orthogonalRoute(source, target, sourceSide, targetSide, lockedX, lockedY, lane);
-  if (obstacles.length === 0) return base;
+  if (obstacles.length === 0 || (lockedX !== undefined && lockedY !== undefined)) return base;
 
   const start = { id: endpoints?.sourceId, side: sourceSide };
   const end = { id: endpoints?.targetId, side: targetSide };
@@ -138,7 +138,7 @@ export function avoidObstacles(
           lockedY,
           0,
         );
-        const score = crossings(candidate.points, obstacles, start, end);
+        const score = crossings(candidate.points, obstacles, start, end, bestScore);
         if (score < bestScore) {
           best = candidate;
           bestScore = score;
@@ -161,7 +161,7 @@ export function avoidObstacles(
           base.my + dir * i * STEP,
           0,
         );
-        const score = crossings(candidate.points, obstacles, start, end);
+        const score = crossings(candidate.points, obstacles, start, end, bestScore);
         if (score < bestScore) {
           best = candidate;
           bestScore = score;
