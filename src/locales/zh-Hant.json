@@ -168,6 +168,7 @@
   "Create a blank project": "建立空白專案",
   "Open another project": "開啟其他專案",
   "Untitled project": "未命名專案",
+  "Remove room item": "移除房間物件",
   "Export failed.": "匯出失敗。",
   "That file isn't valid JSON.": "此檔案不是有效的 JSON。",
   "That JSON isn't an AV schematic project file.": "此 JSON 不是 AV 圖紙專案檔案。",

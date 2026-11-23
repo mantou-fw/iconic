@@ -125,6 +125,8 @@ npm run typecheck
 npm test
 ```
 
+Pull requests and pushes to `main` run [CI](.github/workflows/ci.yml) on Node.js 24. To reproduce its checks locally, run `npm ci`, then `npm run typecheck`, `npm test` and `npm run build`.
+
 Use `PORT` for another development port. Browser, desktop development and packaged profiles have separate IndexedDB storage. Project JSON import/export transfers drawings. The first iconic desktop launch copies the previous app profile once, retaining the original. The database name (`av-schematic-db`) and JSON format (`av-schematic`) stay compatible.
 
 ## Build and release

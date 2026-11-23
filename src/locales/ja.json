@@ -168,6 +168,7 @@
   "Create a blank project": "空のプロジェクトを作成",
   "Open another project": "別のプロジェクトを開く",
   "Untitled project": "無題のプロジェクト",
+  "Remove room item": "ルーム内の物品を削除",
   "Export failed.": "出力に失敗しました。",
   "That file isn't valid JSON.": "有効な JSON ファイルではありません。",
   "That JSON isn't an AV schematic project file.": "AV 図面プロジェクトの JSON ファイルではありません。",

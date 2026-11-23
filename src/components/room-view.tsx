@@ -671,10 +671,12 @@ export function RoomView({
   items,
   onClose,
   onMoveItem,
+  onDeleteItem,
 }: {
   room: RoomSpec;
   items: RoomItem[];
   onClose: () => void;
+  onDeleteItem: (id: string) => void;
   /** Commits a gizmo drag back to the stored layout. */
   onMoveItem?: (
     id: string,
@@ -903,7 +905,16 @@ export function RoomView({
       {/* Selected item detail */}
       {chosen && (
         <div className="glass-panel absolute bottom-4 right-4 z-10 w-[210px] rounded-[12px] p-3">
-          <div className="text-[12px] font-semibold">{chosen.label}</div>
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-[12px] font-semibold">{chosen.label}</div>
+            <button
+              className="text-[10px] text-destructive underline"
+              onClick={() => {
+                onDeleteItem(chosen.id);
+                setSelected(null);
+              }}
+            >{t("Remove room item")}</button>
+          </div>
           {chosen.tag && (
             <div className="font-mono text-[10px] text-[var(--primary)]">
               {chosen.tag}
