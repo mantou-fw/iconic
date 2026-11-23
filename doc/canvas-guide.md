@@ -139,6 +139,13 @@ needs three or more nodes).
 
 Open it from the file menu ("3D room view"), leave with `Esc`.
 
+Use **Room setup** to name and size the room. **Add room object** opens the
+equipment and furniture list and can link the new object to an existing
+schematic device. Select an object to edit its label, coordinates, dimensions,
+rotation, mounting, and notes or to duplicate or remove it. A duplicate is
+unlinked so two room objects do not implicitly represent the same device.
+Room edits use the normal Undo and Redo shortcuts.
+
 The room is modelled in **metres**, origin at the near-left floor corner:
 `x` right (width), `y` up (height), `z` back (depth). Default room is 6 × 5 ×
 2.7 m.
