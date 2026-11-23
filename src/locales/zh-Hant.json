@@ -291,5 +291,21 @@
   "Enter a version name (1–200 characters).": "請輸入版本名稱（1–200 字元）。",
   "Enter a project name (1–200 characters).": "請輸入專案名稱（1–200 字元）。",
   "Canvas is not ready to save.": "畫布尚未準備好儲存。",
-  "A project operation is already running.": "正在處理另一項專案操作。"
+  "A project operation is already running.": "正在處理另一項專案操作。",
+  "Export status": "匯出狀態",
+  "Preparing export…": "正在準備匯出…",
+  "Export file prepared.": "匯出檔案已準備完成。",
+  "Try again, or choose another export format.": "請重試，或選擇其他匯出格式。",
+  "Opening 3D room view…": "正在開啟 3D 房間檢視…",
+  "Could not open the 3D room view.": "無法開啟 3D 房間檢視。",
+  "Retry, or return to the schematic.": "請重試，或返回接線圖。",
+  "Return to schematic": "返回接線圖",
+  "This feature could not be loaded. Please retry.": "無法載入此功能，請重試。",
+  "Cancel": "取消",
+  "If Retry still fails, save your work and reload the app.": "如重試仍然失敗，請儲存工作並重新載入應用程式。",
+  "Saving before reload…": "正在儲存，完成後重新載入…",
+  "Reload stopped. Your work is still open.": "已停止重新載入。你的工作仍然開啟。",
+  "Use File → Save project in the schematic to export a backup.": "請在接線圖選擇「檔案 → 儲存專案」匯出備份。",
+  "Save and reload": "儲存並重新載入",
+  "The drawing changed while saving. Please try Save and reload again.": "儲存期間圖面有變更，請再次選擇「儲存並重新載入」。"
 }

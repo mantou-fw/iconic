@@ -291,5 +291,21 @@
   "Enter a version name (1–200 characters).": "Enter a version name (1–200 characters).",
   "Enter a project name (1–200 characters).": "Enter a project name (1–200 characters).",
   "Canvas is not ready to save.": "Canvas is not ready to save.",
-  "A project operation is already running.": "A project operation is already running."
+  "A project operation is already running.": "A project operation is already running.",
+  "Export status": "Export status",
+  "Preparing export…": "Preparing export…",
+  "Export file prepared.": "Export file prepared.",
+  "Try again, or choose another export format.": "Try again, or choose another export format.",
+  "Opening 3D room view…": "Opening 3D room view…",
+  "Could not open the 3D room view.": "Could not open the 3D room view.",
+  "Retry, or return to the schematic.": "Retry, or return to the schematic.",
+  "Return to schematic": "Return to schematic",
+  "This feature could not be loaded. Please retry.": "This feature could not be loaded. Please retry.",
+  "Cancel": "Cancel",
+  "If Retry still fails, save your work and reload the app.": "If Retry still fails, save your work and reload the app.",
+  "Saving before reload…": "Saving before reload…",
+  "Reload stopped. Your work is still open.": "Reload stopped. Your work is still open.",
+  "Use File → Save project in the schematic to export a backup.": "Use File → Save project in the schematic to export a backup.",
+  "Save and reload": "Save and reload",
+  "The drawing changed while saving. Please try Save and reload again.": "The drawing changed while saving. Please try Save and reload again."
 }

@@ -291,5 +291,21 @@
   "Enter a version name (1–200 characters).": "バージョン名を1〜200文字で入力してください。",
   "Enter a project name (1–200 characters).": "プロジェクト名を1〜200文字で入力してください。",
   "Canvas is not ready to save.": "キャンバスはまだ保存できません。",
-  "A project operation is already running.": "別のプロジェクト操作が実行中です。"
+  "A project operation is already running.": "別のプロジェクト操作が実行中です。",
+  "Export status": "エクスポート状況",
+  "Preparing export…": "エクスポートを準備中…",
+  "Export file prepared.": "エクスポートファイルを準備しました。",
+  "Try again, or choose another export format.": "再試行するか、別のエクスポート形式を選んでください。",
+  "Opening 3D room view…": "3D ルーム表示を開いています…",
+  "Could not open the 3D room view.": "3D ルーム表示を開けませんでした。",
+  "Retry, or return to the schematic.": "再試行するか、配線図に戻ってください。",
+  "Return to schematic": "配線図に戻る",
+  "This feature could not be loaded. Please retry.": "この機能を読み込めませんでした。再試行してください。",
+  "Cancel": "キャンセル",
+  "If Retry still fails, save your work and reload the app.": "再試行しても失敗する場合は、作業を保存してアプリを再読み込みしてください。",
+  "Saving before reload…": "再読み込みの前に保存中…",
+  "Reload stopped. Your work is still open.": "再読み込みを中止しました。作業内容は開いたままです。",
+  "Use File → Save project in the schematic to export a backup.": "配線図の「ファイル → プロジェクトを保存」でバックアップをエクスポートしてください。",
+  "Save and reload": "保存して再読み込み",
+  "The drawing changed while saving. Please try Save and reload again.": "保存中に図面が変更されました。「保存して再読み込み」をもう一度選んでください。"
 }
