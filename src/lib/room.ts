@@ -71,6 +71,14 @@ export const DEFAULT_ROOM: RoomSpec = {
   height: 2.7,
 };
 
+export function clampRoomPosition(position: RoomItem["position"], room: RoomSpec): RoomItem["position"] {
+  return {
+    x: Math.max(0, Math.min(room.width, position.x)),
+    y: Math.max(0, Math.min(room.height, position.y)),
+    z: Math.max(0, Math.min(room.depth, position.z)),
+  };
+}
+
 /** Default footprint and mounting for each kind, in metres. */
 export const KIND_DEFAULTS: Record<
   ItemKind,

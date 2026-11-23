@@ -95,6 +95,7 @@ import { RoomViewFeature } from "@/components/room-view-feature";
 import {
   DEFAULT_ROOM,
   makeRoomItem,
+  clampRoomPosition,
   type RoomItem,
   type RoomSpec,
 } from "@/lib/room";
@@ -1726,6 +1727,27 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
             room={room}
             items={shownRoomItems}
             initialSelection={roomSelection}
+            devices={identities}
+            onEditRoom={(patch) => {
+              const next = { ...room, ...patch };
+              setRoom(next);
+              setRoomItems((items) => items.map((item) => ({ ...item, position: clampRoomPosition(item.position, next) })));
+            }}
+            onAddItem={(kind, label, deviceId) => {
+              const device = identities.find((entry) => entry.id === deviceId);
+              const item = makeRoomItem({ id: nextId(), kind, label: label || device?.name || device?.tag || t(kind),
+                deviceId: device?.id, tag: device?.tag }, room);
+              item.position = clampRoomPosition(item.position, room);
+              setRoomItems((items) => [...items, item]);
+              return item.id;
+            }}
+            onDuplicateItem={(source) => {
+              const id = nextId();
+              const position = clampRoomPosition({ ...source.position, x: source.position.x + 0.25, z: source.position.z + 0.25 }, room);
+              setRoomItems((items) => [...items, { ...source, id, position, size: { ...source.size },
+                importId: undefined, deviceId: undefined, linkStatus: "unlinked", tag: undefined }]);
+              return id;
+            }}
             onClose={closeRoom}
             recovery={{ state: reloadState, onReload: saveAndReload, onCancel: reloadTask.dismiss }}
             onDeleteItem={(id) => setRoomItems((items) => items.filter((item) => item.id !== id))}

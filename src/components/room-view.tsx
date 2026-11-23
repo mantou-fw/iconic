@@ -1,4 +1,6 @@
 import { ImportEvidence } from "@/components/import-evidence";
+import { RoomEditorForm, type RoomEdit, type RoomEditor, type RoomItemEdit } from "@/components/room-editor-form";
+import type { DeviceIdentity } from "@/lib/device-identity";
 
 import { useT } from "@/lib/i18n";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -22,6 +24,7 @@ import {
 import * as THREE from "three";
 
 import {
+  clampRoomPosition,
   isDeviceKind,
   type ItemKind,
   type RoomItem,
@@ -668,6 +671,10 @@ const KIND_GROUPS: { title: string; match: (k: ItemKind) => boolean }[] = [
 
 export function RoomView({
   initialSelection,
+  devices,
+  onEditRoom,
+  onAddItem,
+  onDuplicateItem,
   room,
   items,
   onClose,
@@ -675,6 +682,10 @@ export function RoomView({
   onDeleteItem,
 }: {
   initialSelection?: string;
+  devices: DeviceIdentity[];
+  onEditRoom: (patch: RoomEdit) => void;
+  onAddItem: (kind: ItemKind, label: string, deviceId: string) => string;
+  onDuplicateItem: (source: RoomItem) => string;
   room: RoomSpec;
   items: RoomItem[];
   onClose: () => void;
@@ -682,11 +693,12 @@ export function RoomView({
   /** Commits a gizmo drag back to the stored layout. */
   onMoveItem?: (
     id: string,
-    change: { position?: RoomItem["position"]; rotation?: number },
+    change: Partial<RoomItemEdit>,
   ) => void;
 }) {
   const t = useT();
   const [selected, setSelected] = useState<string | null>(initialSelection ?? null);
+  const [editor, setEditor] = useState<RoomEditor | null>(null);
   const [mode, setMode] = useState<"3d" | "ceiling">("3d");
   const [gizmo, setGizmo] = useState<"translate" | "rotate">("translate");
   const [view, setView] = useState<{ preset: ViewPreset; nonce: number }>({
@@ -716,31 +728,30 @@ export function RoomView({
   const commitGizmo = useCallback(() => {
     if (!selected || !attached) return;
     const snap = (v: number) => Math.round(v * 100) / 100;
-    const clamp = (v: number, hi: number) => Math.min(Math.max(v, 0), hi);
     onMoveItem?.(selected, {
-      position: {
-        x: snap(clamp(attached.position.x, room.width)),
-        y: snap(clamp(attached.position.y, room.height)),
-        z: snap(clamp(attached.position.z, room.depth)),
-      },
+      position: clampRoomPosition({ x: snap(attached.position.x), y: snap(attached.position.y), z: snap(attached.position.z) }, room),
       rotation: Math.round(THREE.MathUtils.radToDeg(attached.rotation.y)),
     });
-  }, [attached, onMoveItem, room.depth, room.height, room.width, selected]);
+  }, [attached, onMoveItem, room, selected]);
   const chosen = useMemo(
     () => items.find((i) => i.id === selected) ?? null,
     [items, selected],
   );
 
   useEffect(() => {
-    const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && !e.defaultPrevented && !editor && onClose();
     window.addEventListener("keydown", esc);
     return () => window.removeEventListener("keydown", esc);
-  }, [onClose]);
+  }, [editor, onClose]);
 
   const diag = Math.hypot(room.width, room.depth);
 
   return (
     <div className="absolute inset-0 z-40 flex flex-col bg-[var(--canvas)]">
+      {editor && <RoomEditorForm editor={editor} room={room} devices={devices}
+        close={() => setEditor(null)} saveRoom={onEditRoom}
+        addItem={(kind, label, deviceId) => setSelected(onAddItem(kind, label, deviceId))}
+        saveItem={(id, patch) => onMoveItem?.(id, patch)} />}
       {/* Title bar */}
       <div className="glass-panel absolute left-4 top-4 z-10 flex items-center gap-2.5 rounded-[12px] px-3 py-2">
         <Boxes size={15} className="text-[var(--primary)]" />
@@ -749,6 +760,7 @@ export function RoomView({
           {room.width}m × {room.depth}m × {room.height}m · {items.length}{" "}
           {t("items")}{" "}
         </span>
+        <button className="rounded px-2 py-1 text-xs underline" onClick={() => setEditor({ type: "room" })}>{t("Room setup")}</button>
         <div className="mx-1 h-4 w-px bg-[var(--hairline)]" />
         <div className="flex items-center gap-0.5 rounded-[7px] bg-black/[0.06] p-0.5 dark:bg-white/10">
           {(
@@ -857,18 +869,7 @@ export function RoomView({
           {room.imports?.map(entry => (
             <ImportEvidence key={entry.importId} provenance={entry.provenance} estimated={entry.dimensionBasis === 'estimated'} />
           ))}
-          {items.length === 0 && (
-            <p className="px-2 py-3 text-[11px] leading-snug text-muted-foreground">
-              {" "}
-              {t(
-                "Nothing placed yet. Ask the AI to lay out the room, or use the",
-              )}{" "}
-              <code className="mx-1 rounded bg-black/10 px-1 dark:bg-white/10">
-                add_room_item
-              </code>{" "}
-              {t("tool.")}{" "}
-            </p>
-          )}
+          <button className="px-2 py-1 text-xs font-medium underline" onClick={() => setEditor({ type: "add" })}>{t("Add room object")}</button>
           {KIND_GROUPS.map(({ title, match }) => {
             const group = items.filter((i) => match(i.kind));
             if (group.length === 0) return null;
@@ -922,63 +923,22 @@ export function RoomView({
               {chosen.tag}
             </div>
           )}
+          <div className="mt-2 flex flex-wrap gap-2 text-[10px]">
+            <button className="underline" onClick={() => setEditor({ type: "item", item: chosen })}>{t("Edit room object")}</button>
+            <button className="underline" onClick={() => setSelected(onDuplicateItem(chosen))}>{t("Duplicate room object")}</button>
+          </div>
           <dl className="mt-2 space-y-0.5 text-[10px] text-muted-foreground">
             <div className="flex justify-between">
               <dt>{t("Mount")}</dt>
               <dd className="capitalize text-foreground">{t(chosen.mount)}</dd>
             </div>
-            {/* X and Z are set by dragging in the views; AFF is numeric,
-                because you cannot drag height on a plan. */}
             <div className="flex items-center justify-between gap-2">
               <dt>X · Z</dt>
-              <dd className="flex gap-1">
-                {(["x", "z"] as const).map((axis) => (
-                  <input
-                    key={axis}
-                    type="number"
-                    step={0.05}
-                    min={0}
-                    max={axis === "x" ? room.width : room.depth}
-                    value={chosen.position[axis]}
-                    title={`${axis.toUpperCase()} (${t("metres")})`}
-                    onChange={(e) =>
-                      onMoveItem?.(chosen.id, {
-                        position: {
-                          ...chosen.position,
-                          [axis]: Number(e.target.value) || 0,
-                        },
-                      })
-                    }
-                    className="w-[52px] rounded-[5px] border border-[var(--hairline)] bg-background/70 px-1 py-0.5 text-right font-mono text-[10px] text-foreground outline-none focus:ring-2 focus:ring-[var(--primary)]/35"
-                  />
-                ))}
-              </dd>
+              <dd className="font-mono text-foreground">{chosen.position.x} · {chosen.position.z} m</dd>
             </div>
             <div className="flex items-center justify-between gap-2">
               <dt title={t("Above finished floor")}>AFF</dt>
-              <dd className="flex items-center gap-1">
-                <input
-                  type="number"
-                  step={0.05}
-                  min={0}
-                  max={room.height}
-                  value={chosen.position.y}
-                  title={t("Height above finished floor, in metres")}
-                  onChange={(e) =>
-                    onMoveItem?.(chosen.id, {
-                      position: {
-                        ...chosen.position,
-                        y: Math.min(
-                          Math.max(Number(e.target.value) || 0, 0),
-                          room.height,
-                        ),
-                      },
-                    })
-                  }
-                  className="w-[68px] rounded-[5px] border border-[var(--hairline)] bg-background/70 px-1 py-0.5 text-right font-mono text-[10px] text-foreground outline-none focus:ring-2 focus:ring-[var(--primary)]/35"
-                />
-                <span className="text-[9px]">m</span>
-              </dd>
+              <dd className="font-mono text-foreground">{chosen.position.y} m</dd>
             </div>
             <div className="flex justify-between">
               <dt>{t("Size")}</dt>
