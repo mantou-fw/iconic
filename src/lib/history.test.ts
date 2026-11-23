@@ -74,3 +74,17 @@ test("new projects and restored versions start with an empty undo stack", () => 
   remountedHistory.record(documentAt(55));
   expect(remountedHistory.undo("schematic", documentAt(55))).toBeUndefined();
 });
+
+test("Undo restores an item's previous position and rotation from a single gesture", () => {
+  const history = createDocumentHistory();
+  const initial = documentAt(0);
+  const item = makeRoomItem({ id: "display", kind: "tv", label: "Display" }, DEFAULT_ROOM);
+  initial.room.items = [item];
+  const changed = { ...initial, room: { ...initial.room, items: [
+    { ...item, rotation: 90, position: { ...item.position, x: 1.75 } },
+  ] } };
+  history.record(initial);
+  history.record(changed, Symbol());
+  expect(history.undo("room", changed)?.items).toEqual([item]);
+  expect(history.redo("room", initial)?.items).toEqual(changed.room.items);
+});

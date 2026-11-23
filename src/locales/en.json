@@ -156,6 +156,7 @@
   "Device not found.": "Device not found.",
   "Device reference is ambiguous. Use the device ID from the device list.": "Device reference is ambiguous. Use the device ID from the device list.",
   "Port label is ambiguous. Use the port ID from the device list.": "Port label is ambiguous. Use the port ID from the device list.",
+  "Remove room item": "Remove room item",
   "Export failed.": "Export failed.",
   "That file isn't valid JSON.": "That file isn't valid JSON.",
   "That JSON isn't an AV schematic project file.": "That JSON isn't an AV schematic project file.",

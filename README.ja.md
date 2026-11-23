@@ -125,6 +125,8 @@ npm run typecheck
 npm test
 ```
 
+プルリクエストの作成・更新時と `main` へのプッシュ時に、[CI](.github/workflows/ci.yml) が Node.js 24 で検証を実行します。ローカルで再現するには、`npm ci` の後に `npm run typecheck`、`npm test`、`npm run build` を実行します。
+
 開発用ポートは `PORT` で変更できます。ブラウザー、デスクトップ開発版、パッケージ版は、それぞれ独立した IndexedDB ストレージを使用します。図面の移行にはプロジェクト JSON のインポート／エクスポートを利用してください。iconic デスクトップ版は初回起動時に旧アプリのプロファイルを一度だけコピーし、元のデータを保持します。データベース名（`av-schematic-db`）と JSON 形式（`av-schematic`）には互換性があります。
 
 ## ビルドとリリース
