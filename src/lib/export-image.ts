@@ -1,9 +1,10 @@
 import { t } from "./i18n";
 import { getNodesBounds, getViewportForBounds, type Node } from "@xyflow/react";
 import { toBlob, toPng, toSvg } from "html-to-image";
-import { jsPDF } from "jspdf";
+import { downloadBlob, stamp } from "./download";
+import { createFeatureLoader } from "./feature-loader";
 
-import { downloadBlob, stamp } from "./schedules";
+const pdfFeature = createFeatureLoader(() => import("jspdf"));
 
 export type ImageFormat = "png" | "svg" | "pdf";
 
@@ -69,6 +70,8 @@ type Options = {
   scale?: number;
   transparent?: boolean;
   filename?: string;
+  /** A closed project or cancelled export must not trigger a late download. */
+  signal?: AbortSignal;
 };
 
 export async function exportDrawing({
@@ -78,7 +81,9 @@ export async function exportDrawing({
   scale = 2,
   transparent = false,
   filename,
+  signal,
 }: Options) {
+  if (signal?.aborted) return;
   if (nodes.length === 0) {
     throw new Error(t("Nothing to export — the canvas is empty."));
   }
@@ -119,9 +124,10 @@ export async function exportDrawing({
 
   if (format === "svg") {
     const dataUrl = await toSvg(element, shared);
+    if (signal?.aborted) return;
     const xml = decodeURIComponent(dataUrl.slice(dataUrl.indexOf(",") + 1));
     if (!backgroundColor) {
-      downloadBlob(new Blob([xml], { type: "image/svg+xml" }), `${name}.svg`);
+      downloadBlob(new Blob([xml], { type: "image/svg+xml" }), `${name}.svg`, signal);
       return;
     }
     // Put the background on the sheet rather than on the translated viewport.
@@ -131,18 +137,25 @@ export async function exportDrawing({
     rect.setAttribute("height", "100%");
     rect.setAttribute("fill", backgroundColor);
     svg.prepend(rect);
-    downloadBlob(new Blob([new XMLSerializer().serializeToString(svg)], { type: "image/svg+xml" }), `${name}.svg`);
+    downloadBlob(new Blob([new XMLSerializer().serializeToString(svg)], { type: "image/svg+xml" }), `${name}.svg`, signal);
     return;
   }
 
   const raster = { ...shared, backgroundColor };
   if (format === "png") {
     const blob = await toBlob(element, raster);
+    if (signal?.aborted) return;
     if (!blob) throw new Error(t("Export failed."));
-    downloadBlob(blob, `${name}.png`);
+    downloadBlob(blob, `${name}.png`, signal);
     return;
   }
-  const dataUrl = await toPng(element, raster);
+  // Start capture immediately after measuring the current view. Waiting for the
+  // PDF chunk first could mix old nodes/zoom with a newly edited live DOM.
+  const [dataUrl, pdfModule] = await Promise.all([
+    toPng(element, raster),
+    pdfFeature.load(),
+  ]);
+  if (signal?.aborted) return;
 
   // Fit the whole drawing on one PDF page, including drawings larger than
   // the maximum PDF page size. Preserve its aspect ratio at the page limit.
@@ -150,12 +163,12 @@ export async function exportDrawing({
   const pageWidth = width * pointsPerUnit;
   const pageHeight = height * pointsPerUnit;
   const orientation = width >= height ? "landscape" : "portrait";
-  const pdf = new jsPDF({
+  const pdf = new pdfModule.jsPDF({
     orientation,
     unit: "pt",
     format: [pageWidth, pageHeight],
     compress: true,
   });
   pdf.addImage(dataUrl, "PNG", 0, 0, pageWidth, pageHeight, undefined, "FAST");
-  downloadBlob(pdf.output("blob"), `${name}.pdf`);
+  downloadBlob(pdf.output("blob"), `${name}.pdf`, signal);
 }

@@ -56,12 +56,11 @@ import { captureCanvas } from "@/lib/canvas-project";
 import type { ProjectSession } from "@/lib/project-store";
 import { prepareRoomImport } from "@/lib/ai-imports";
 import { productSchema } from "../../shared/ai-imports.mjs";
-import {
-  buildWorkbook,
-  downloadBlob,
-  stamp,
-  workbookBlob,
-} from "@/lib/schedules";
+import { downloadBlob, stamp } from "@/lib/download";
+import { schedulesFeature, imageExportFeature, htmlExportFeature } from "@/lib/feature-imports";
+import { createExportTask, type ExportTaskState } from "@/lib/export-task";
+import { createReloadTask, type ReloadTaskState } from "@/lib/reload-task";
+import { ExportStatus } from "@/components/export-status";
 import { makePort, type DevicePort } from "@/components/nodes/av-device-node";
 import {
   ZoneNode,
@@ -88,10 +87,9 @@ import {
   type AlignMode,
   type DistributeMode,
 } from "@/lib/align";
-import { exportDrawing, type ImageFormat } from "@/lib/export-image";
+import type { ImageFormat } from "@/lib/export-image";
 import { readRenderedEdges } from "@/lib/export-geometry";
-import { buildViewerHtml } from "@/lib/export-html";
-import { RoomView } from "@/components/room-view";
+import { RoomViewFeature } from "@/components/room-view-feature";
 import {
   DEFAULT_ROOM,
   makeRoomItem,
@@ -240,6 +238,15 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
   const [roomItems, setRoomItems] = useState<RoomItem[]>([]);
   const [showRoom, setShowRoom] = useState(false);
   const [reviewLinks, setReviewLinks] = useState(false);
+  const [exportState, setExportState] = useState<ExportTaskState>(null);
+  const [exportTask] = useState(() => createExportTask(setExportState));
+  const [reloadState, setReloadState] = useState<ReloadTaskState>(null);
+  const [reloadTask] = useState(() => createReloadTask(setReloadState));
+  useLayoutEffect(() => () => { exportTask.cancel(); reloadTask.cancel(); }, [exportTask, reloadTask]);
+  const closeRoom = useCallback(() => {
+    reloadTask.dismiss();
+    setShowRoom(false);
+  }, [reloadTask]);
   const { theme, resolved, setTheme } = useTheme();
 
   const rf = useReactFlow();
@@ -434,12 +441,46 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
     return () => clearTimeout(timer);
   }, [nodes, edges, loaded, blocked, flush, viewRevision]);
 
+  const warnBeforeUnload = useCallback((event: BeforeUnloadEvent) => {
+    event.preventDefault(); event.returnValue = '';
+  }, []);
   useEffect(() => {
     if (!loaded || saveStatus === 'saved') return;
-    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
-  }, [loaded, saveStatus]);
+    window.addEventListener('beforeunload', warnBeforeUnload);
+    return () => window.removeEventListener('beforeunload', warnBeforeUnload);
+  }, [loaded, saveStatus, warnBeforeUnload]);
+
+  const reloadContext = useRef({ session, capture, flush, loaded, blocked });
+  useLayoutEffect(() => {
+    reloadContext.current = { session, capture, flush, loaded, blocked };
+    // Project operations block this editor before switching or restoring it.
+    if (blocked) reloadTask.dismiss();
+  }, [session, capture, flush, loaded, blocked, reloadTask]);
+
+  const saveAndReload = useCallback(() => {
+    const current = reloadContext.current;
+    const content = (project: ProjectFile) => JSON.stringify({ ...project, savedAt: undefined });
+    let savedContent: string;
+    void reloadTask.run({
+      save: async () => {
+        if (!current.loaded || current.blocked) throw new Error('Canvas is not ready to save.');
+        savedContent = content(current.capture());
+        await current.flush();
+      },
+      isCurrent: () => {
+        const latest = reloadContext.current;
+        // Edits during a slow save must not disappear in the subsequent reload.
+        return latest.session === current.session && latest.loaded && !latest.blocked
+          && content(latest.capture()) === savedContent;
+      },
+      reload: () => {
+        // flush has saved the exact current content. React may not have removed
+        // its old unsaved-work listener yet when the save promise resolves.
+        window.removeEventListener('beforeunload', warnBeforeUnload);
+        window.location.reload();
+      },
+    });
+  }, [reloadTask, warnBeforeUnload]);
 
   /**
    * Re-colours every edge when the legend changes so the drawing always
@@ -833,17 +874,18 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
     [onImport, t],
   );
 
-  const onExportXlsx = useCallback(async () => {
-    const {
-      nodes: dbNodes,
-      edges: dbEdges,
-      signals: dbSignals,
-    } = capture();
-    downloadBlob(
-      workbookBlob(buildWorkbook(dbNodes, dbEdges, dbSignals)),
-      `av-schedules-${stamp()}.xlsx`,
-    );
-  }, [capture]);
+  const onExportXlsx = useCallback(() => {
+    reloadTask.dismiss();
+    void exportTask.run("xlsx", async (signal) => {
+      const { nodes: dbNodes, edges: dbEdges, signals: dbSignals } = capture();
+      const { buildWorkbook, workbookBlob } = await schedulesFeature.load();
+      if (signal.aborted) return;
+      downloadBlob(
+        workbookBlob(buildWorkbook(dbNodes, dbEdges, dbSignals)),
+        `av-schedules-${stamp()}.xlsx`, signal,
+      );
+    });
+  }, [capture, exportTask, reloadTask]);
 
   /* ------------------------------------------------------- alignment */
 
@@ -906,36 +948,46 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
   /* ---------------------------------------------------------- printing */
 
   const onExportImage = useCallback(
-    async (format: ImageFormat) => {
-      try {
-        await exportDrawing({ nodes: rf.getNodes(), zoom: rf.getZoom(), format });
-      } catch (err) {
-        alert(err instanceof Error ? err.message : t("Export failed."));
-      }
+    (format: ImageFormat) => {
+      reloadTask.dismiss();
+      void exportTask.run(format, async (signal) => {
+        const { exportDrawing } = await imageExportFeature.load();
+        if (signal.aborted) return;
+        await exportDrawing({ nodes: rf.getNodes(), zoom: rf.getZoom(), format, signal });
+      });
     },
-    [rf, t],
+    [rf, exportTask, reloadTask],
   );
 
   const onExportHtml = useCallback(() => {
-    try {
+    reloadTask.dismiss();
+    void exportTask.run("html", async (signal) => {
       const all = rf.getNodes();
-      const html = buildViewerHtml({
+      const drawing = {
         nodes: all,
         edges: rf.getEdges(),
         renderedEdges: readRenderedEdges(document.querySelector(".react-flow__viewport")),
         room,
         roomItems: shownRoomItems,
         signals,
-        absolute: (n) => absolutePosition(n, all),
-      });
+        absolute: (n: Node) => absolutePosition(n, all),
+      };
+      const { buildViewerHtml } = await htmlExportFeature.load();
+      if (signal.aborted) return;
+      const html = buildViewerHtml(drawing);
       downloadBlob(
         new Blob([html], { type: "text/html;charset=utf-8" }),
-        `av-schematic-viewer-${stamp()}.html`,
+        `av-schematic-viewer-${stamp()}.html`, signal,
       );
-    } catch (err) {
-      alert(err instanceof Error ? err.message : t("Export failed."));
-    }
-  }, [rf, room, shownRoomItems, signals, t]);
+    });
+  }, [rf, room, shownRoomItems, signals, exportTask, reloadTask]);
+
+  const retryExport = () => {
+    if (!exportState) return;
+    if (exportState.format === "xlsx") onExportXlsx();
+    else if (exportState.format === "html") onExportHtml();
+    else onExportImage(exportState.format);
+  };
 
   const toggleSnap = useCallback(
     () => setSettings((s) => ({ ...s, snapToGrid: !s.snapToGrid })),
@@ -1633,10 +1685,11 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
         {/* Overlaid rather than swapped in: unmounting ReactFlow would empty its
           store, and both capture() and the AI commands read from it. */}
         {showRoom && (
-          <RoomView
+          <RoomViewFeature
             room={room}
             items={shownRoomItems}
-            onClose={() => setShowRoom(false)}
+            onClose={closeRoom}
+            recovery={{ state: reloadState, onReload: saveAndReload, onCancel: reloadTask.dismiss }}
             onDeleteItem={(id) => setRoomItems((items) => items.filter((item) => item.id !== id))}
             onMoveItem={(id, change) =>
               setRoomItems((prev) =>
@@ -1659,12 +1712,16 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
           onExportXlsx={onExportXlsx}
           onExportImage={onExportImage}
           onExportHtml={onExportHtml}
-          onOpenRoom={() => setShowRoom(true)}
+          exportBusy={exportState?.phase === "preparing" || reloadState?.phase === "saving"}
+          onOpenRoom={() => { reloadTask.dismiss(); setShowRoom(true); }}
           roomItemCount={roomItems.length}
           theme={theme}
           onThemeChange={setTheme}
           aiStatus={aiStatus}
         />
+        <ExportStatus state={exportState} onRetry={retryExport}
+          onDismiss={() => { reloadTask.dismiss(); exportTask.dismiss(); }}
+          recovery={{ state: reloadState, onReload: saveAndReload, onCancel: reloadTask.dismiss }} />
         <input
           ref={projectInputRef}
           type="file"

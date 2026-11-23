@@ -43,16 +43,19 @@ function Item({
   label,
   hint,
   onClick,
+  disabled = false,
 }: {
   icon: typeof Save;
   label: string;
   hint?: string;
   onClick: () => void;
+  disabled?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
-      className="flex w-full items-center gap-2.5 rounded-[7px] px-2 py-1.5 text-[13px] text-foreground transition-colors hover:bg-black/[0.06] dark:hover:bg-white/10"
+      disabled={disabled}
+      className="flex w-full items-center gap-2.5 rounded-[7px] px-2 py-1.5 text-[13px] text-foreground transition-colors hover:bg-black/[0.06] disabled:cursor-wait disabled:opacity-50 dark:hover:bg-white/10"
     >
       <Icon
         size={14}
@@ -76,6 +79,7 @@ export function FileMenu({
   onExportXlsx,
   onExportImage,
   onExportHtml,
+  exportBusy = false,
   onOpenRoom,
   roomItemCount,
   theme,
@@ -88,6 +92,7 @@ export function FileMenu({
   onExportXlsx: () => void;
   onExportImage: (format: "png" | "svg" | "pdf") => void;
   onExportHtml: () => void;
+  exportBusy?: boolean;
   onOpenRoom: () => void;
   roomItemCount: number;
   theme: ThemePref;
@@ -173,6 +178,7 @@ export function FileMenu({
             <Item
               icon={Sheet}
               label={t("Export schedules")}
+              disabled={exportBusy}
               hint=".xlsx"
               onClick={run(onExportXlsx)}
             />
@@ -188,24 +194,28 @@ export function FileMenu({
             <Item
               icon={FileType}
               label={t("Print / Export PDF")}
+              disabled={exportBusy}
               hint=".pdf"
               onClick={run(() => onExportImage("pdf"))}
             />
             <Item
               icon={ImageIcon}
               label={t("Export image")}
+              disabled={exportBusy}
               hint=".png"
               onClick={run(() => onExportImage("png"))}
             />
             <Item
               icon={FileImage}
               label={t("Export vector")}
+              disabled={exportBusy}
               hint=".svg"
               onClick={run(() => onExportImage("svg"))}
             />
             <Item
               icon={Globe}
               label={t("Interactive viewer")}
+              disabled={exportBusy}
               hint=".html"
               onClick={run(onExportHtml)}
             />

@@ -5,7 +5,7 @@ import { ProjectCatalog, ProjectSession, type ProjectEntry, type ProjectVersion 
 import { readProject, type ProjectFile } from '@/lib/project';
 import { blankProject } from '@/lib/canvas-project';
 import { useT } from '@/lib/i18n';
-import { downloadBlob } from '@/lib/schedules';
+import { downloadBlob } from '@/lib/download';
 
 type Recovery = { entry?: ProjectEntry; name: string; raw?: string; message: string };
 
