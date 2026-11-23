@@ -1600,7 +1600,7 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady 
       nodes.filter(isObstacle).map((n) => {
         const at = absolutePosition(n, nodes);
         const { w, h } = sizeOf(n);
-        return { x: at.x, y: at.y, w, h };
+        return { id: n.id, x: at.x, y: at.y, w, h };
       }),
     [nodes],
   );

@@ -31,6 +31,8 @@ export type LabeledEdgeData = {
 
 export function LabeledEdge({
   id,
+  source,
+  target,
   sourceX,
   sourceY,
   targetX,
@@ -69,9 +71,12 @@ export function LabeledEdge({
         edgeData.midX,
         edgeData.midY,
         edgeData.lane ?? 0,
+        { sourceId: source, targetId: target },
       ),
     [
       obstacles,
+      source,
+      target,
       sourceX,
       sourceY,
       targetX,
