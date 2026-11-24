@@ -2,7 +2,8 @@ import { expect, test } from "vitest";
 import type { Edge, Node } from "@xyflow/react";
 
 import { buildViewerHtml } from "./export-html";
-import { DEFAULT_ROOM, makeRoomItem } from "./room";
+import { setLocale, translate } from "./i18n";
+import { DEFAULT_ROOM, makeRoomItem, type MountKind } from "./room";
 
 const device = (id: string, tag: string, name: string, x: number, y: number): Node => ({
   id,
@@ -114,6 +115,20 @@ test("includes the room plan when the drawing has one", () => {
   expect(build({ roomItems: [] })).toContain("No room layout");
 });
 
+test.each([[30, -30], [-30, 30], [0, 0]])(
+  "uses plan rotation %s° as 3D yaw and draws an SVG footprint at %s°",
+  (yaw, planAngle) => {
+    const table = makeRoomItem({
+      id: "table", kind: "table", label: "Conference table",
+      position: { x: 1.5, y: 0.5, z: 2 },
+      size: { w: 2, h: 0.73, d: 0.8 }, rotation: yaw,
+    }, DEFAULT_ROOM);
+    expect(build({ roomItems: [table] })).toContain(
+      `data-id="table" tabindex="0"\n        transform="rotate(${planAngle} 175 220)"`,
+    );
+  },
+);
+
 test("is read-only: no editing affordances are emitted", () => {
   const html = build();
   expect(html).not.toContain("contenteditable");
@@ -151,8 +166,7 @@ test("survives an empty drawing", () => {
 });
 
 // Exported clients receive the current UI language without altering drawing data.
-test.each(["en", "zh-Hant", "ja"] as const)("exports a working localized viewer in %s", async language => {
-  const { setLocale, translate } = await import("./i18n");
+test.each(["en", "zh-Hant", "ja"] as const)("exports a working localized viewer in %s", language => {
   try {
     setLocale(language);
     const html = build();
@@ -165,6 +179,34 @@ test.each(["en", "zh-Hant", "ja"] as const)("exports a working localized viewer 
     expect(() => new Function(script!)).not.toThrow();
   } finally { setLocale("en"); }
 });
+
+test.each([
+  ["en", "Devices", "Furniture", "Mount", "Height", "Position", "Size", "wall", "ceiling", "floor", "table", "rack"],
+  ["zh-Hant", "設備", "傢俬", "安裝方式", "高度", "位置", "尺寸", "牆壁", "天花", "地面", "桌面", "機架"],
+  ["ja", "機器", "家具", "取付方法", "高さ", "位置", "サイズ", "壁", "天井", "床", "卓上", "ラック"],
+] as const)("localizes room-plan controls and mount values in %s without translating authored content",
+  (language, devices, furniture, mount, height, position, size, ...mountLabels) => {
+    const mounts = ["wall", "ceiling", "floor", "table", "rack"] satisfies MountKind[];
+    const roomItems = mounts.map((mount, index) => makeRoomItem({
+      id: `item-${index}`, kind: index === 0 ? "tv" : "table",
+      label: "自訂桌 & Display", tag: "AV-01", note: "保留原稿。", mount,
+    }, DEFAULT_ROOM));
+    try {
+      setLocale(language);
+      const html = build({ roomItems });
+      expect(html).toContain(`group("${devices}",`);
+      expect(html).toContain(`group("${furniture}",`);
+      for (const field of [mount, height, position, size]) {
+        expect(html).toContain(`escapeHtml("${field}") + ": "`);
+      }
+      for (const label of mountLabels) {
+        expect(html).toContain(`"mountLabel":"${label}"`);
+        expect(html).toContain(`自訂桌 &amp; Display (AV-01) — ${label} @`);
+      }
+      expect(html).toContain('"note":"保留原稿。"');
+    } finally { setLocale("en"); }
+  },
+);
 
 test("keeps legend content literal and gives SVG markers internal IDs", () => {
   const html = build({
@@ -206,6 +248,15 @@ test("keeps inline image data and rejects other image sources and invalid colors
   expect(html).toContain('fill="#94a3b8"');
   expect(html).not.toContain("url(#other)");
   expect(html).not.toContain("example.invalid");
+});
+
+test("embeds a valid two-frame APNG with its registered MIME type", () => {
+  const src = "data:image/apng;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAACGFjVEwAAAACAAAAAPONk3AAAAAaZmNUTAAAAAAAAAAIAAAACAAAAAAAAAAAAAMAFAAAnjZneAAAABZJREFUeJxjdGva8p8BD2DCJzl8FAAAkNwCi+haYmIAAAAaZmNUTAAAAAEAAAAIAAAACAAAAAAAAAAAAAMAFAAABUWNrAAAABpmZEFUAAAAAnicY/y/lOE/Ax7AhE9y+CgAALs5ArPmRDrmAAAAAElFTkSuQmCC";
+  const html = build({
+    nodes: [...nodes, { id: "apng", type: "image", position: { x: 0, y: 200 }, data: { src } }],
+  });
+  expect(html).toContain(`href="${src}"`);
+  expect(html).not.toContain("Image could not be embedded.");
 });
 
 test("keeps persisted drawing objects and rendered routes, labels, and arrow directions", () => {

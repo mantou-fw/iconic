@@ -1,7 +1,8 @@
 import { expect, test } from "vitest";
+import { Euler, MathUtils, PerspectiveCamera, Vector3 } from "three";
 
 import { presetCamera, VIEW_PRESETS, type ViewPreset } from "./room-view";
-import { DEFAULT_ROOM } from "@/lib/room";
+import { DEFAULT_ROOM, roomPlanRotation } from "@/lib/room";
 
 const room = { ...DEFAULT_ROOM, width: 6, depth: 5, height: 2.7 };
 const cam = (p: ViewPreset) => presetCamera(p, room);
@@ -47,6 +48,21 @@ test("top looks straight down from above the room", () => {
   expect(top.target[1]).toBe(0);
   // Nudged off dead centre, or the up-vector degenerates and the orbit flips.
   expect(top.pos[2]).not.toBe(top.target[2]);
+});
+
+test.each([-30, 0, 30])("the plan footprint follows %s° Three.js yaw in the top camera", (yaw) => {
+  const { pos, target } = cam("top");
+  const camera = new PerspectiveCamera(45, 1, 0.01, 1000);
+  camera.position.fromArray(pos);
+  camera.lookAt(new Vector3().fromArray(target));
+  camera.updateMatrixWorld(true);
+
+  const centre = new Vector3(room.width / 2, 0.73, room.depth / 2);
+  const rotation = new Euler(0, MathUtils.degToRad(yaw), 0);
+  const left = new Vector3(-1, 0, 0).applyEuler(rotation).add(centre).project(camera);
+  const right = new Vector3(1, 0, 0).applyEuler(rotation).add(centre).project(camera);
+  const screenAngle = MathUtils.radToDeg(Math.atan2(left.y - right.y, right.x - left.x));
+  expect(screenAngle).toBeCloseTo(roomPlanRotation(yaw), 4);
 });
 
 test("iso is the three-quarter overview, above and outside two walls", () => {

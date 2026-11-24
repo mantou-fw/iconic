@@ -54,6 +54,11 @@ export type RoomItem = DeviceLink & {
   note?: string;
 };
 
+/** Convert Three.js yaw (right-handed about +Y) to SVG rotation with +Z down. */
+export function roomPlanRotation(yaw: number): number {
+  return Number.isFinite(yaw) && yaw !== 0 ? -yaw : 0;
+}
+
 export type RoomSpec = {
   imports?: RoomImportRecord[];
   id: "room";
