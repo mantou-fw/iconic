@@ -8,10 +8,11 @@ import { useT } from '@/lib/i18n';
 import { downloadBlob } from '@/lib/download';
 import { parseProjectArchive } from '@/lib/project-archive';
 import { ProjectVersionPreview } from './project-version-preview';
+import { PhotoRoomWorkbench } from './photo-room-workbench';
 
 type Recovery = { entry?: ProjectEntry; name: string; raw?: string; olderAppRaw?: string; message: string };
 
-type OpenProject = { session: ProjectSession; initial: ProjectFile; generation: number };
+type OpenProject = { session: ProjectSession; initial: ProjectFile; generation: number; startInRoom?: boolean };
 const recentFirst = (a: ProjectEntry, b: ProjectEntry) => (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt);
 
 export function ProjectWorkspace() {
@@ -22,6 +23,7 @@ export function ProjectWorkspace() {
   const [entries, setEntries] = useState<ProjectEntry[]>([]);
   const [versions, setVersions] = useState<ProjectVersion[]>([]);
   const [open, setOpen] = useState(false);
+  const [photoRoomOpen, setPhotoRoomOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [projectName, setProjectName] = useState('');
@@ -121,33 +123,34 @@ export function ProjectWorkspace() {
     else dialog.current?.close();
   }, [open]);
 
-  const switchTo = async (nextSession: ProjectSession) => {
+  const switchTo = async (nextSession: ProjectSession, startInRoom = false) => {
     try {
       const initial = await nextSession.read();
       await catalog!.activate(nextSession.entry.id);
       const previous = active.current;
-      const next = { session: nextSession, initial, generation: 0 };
+      const next = { session: nextSession, initial, generation: 0, startInRoom };
       active.current = next;
       handle.current = null;
       setCurrent(next);
       setRecovery(null);
       setOpen(false);
+      setPhotoRoomOpen(false);
       await previous?.session.close();
     } catch (error) { await nextSession.close(); throw error; }
   };
 
-  const createProject = async (project: ProjectFile, name: string) => {
+  const createProject = async (project: ProjectFile, name: string, startInRoom = false) => {
     if (!catalog || !handle.current) throw new Error('Canvas is not ready to save.');
     await handle.current.flush();
-    await switchTo(await catalog.create(name, project));
+    await switchTo(await catalog.create(name, project), startInRoom);
     setProjectName('');
   };
 
-  const importProject = async (project: ProjectFile, name: string) => {
+  const importProject = async (project: ProjectFile, name: string, startInRoom = false) => {
     if (transition.current) throw new Error('A project operation is already running.');
     transition.current = true;
     setBusy(true);
-    try { await createProject(project, name); }
+    try { await createProject(project, name, startInRoom); }
     finally { transition.current = false; setBusy(false); }
   };
 
@@ -236,7 +239,10 @@ export function ProjectWorkspace() {
 
   return <>
     <Canvas key={`${current.session.entry.id}:${current.generation}`} session={current.session} initial={current.initial}
-      blocked={busy || open} onProjects={showProjects} onImport={importProject} onReady={onReady} onSaved={markEdited} />
+      blocked={busy || open || photoRoomOpen} startInRoom={current.startInRoom} onPhotoRoom={() => setPhotoRoomOpen(true)}
+      onProjects={showProjects} onImport={importProject} onReady={onReady} onSaved={markEdited} />
+    {photoRoomOpen && <PhotoRoomWorkbench onClose={() => setPhotoRoomOpen(false)}
+      onCreate={(project, name) => importProject(project, name, true)} />}
     <dialog ref={dialog} aria-labelledby="project-dialog-title" onKeyDown={event => event.stopPropagation()} onCancel={event => { event.preventDefault(); if (!busy) setOpen(false); }}
       className="fixed inset-0 m-auto max-h-[85vh] w-[720px] max-w-[94vw] overflow-y-auto rounded-2xl border border-[var(--hairline)] bg-background p-6 text-foreground shadow-xl backdrop:bg-black/40">
       <header className="mb-5 flex items-center justify-between">
@@ -343,7 +349,7 @@ export function ProjectWorkspace() {
                   if (!handle.current) throw new Error('Canvas is not ready to save.');
                   const initial = await current.session.restore(version.id, handle.current.capture());
                   await markEdited(current.session).catch(() => undefined);
-                  const next = { ...current, initial, generation: current.generation + 1 };
+                  const next = { ...current, initial, generation: current.generation + 1, startInRoom: false };
                   active.current = next; handle.current = null; setCurrent(next); setOpen(false);
                 })}>{t('Restore')}</button>
               </>}

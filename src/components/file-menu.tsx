@@ -2,6 +2,7 @@ import { useLocale, setLocale, type Locale, useT } from "@/lib/i18n";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Boxes,
+  ScanLine,
   ClipboardCheck,
   BookOpen,
   LibraryBig,
@@ -76,6 +77,7 @@ function Item({
 
 export function FileMenu({
   onProjects,
+  onPhotoRoom,
   onReview,
   onLibrary,
   onOpen,
@@ -91,6 +93,7 @@ export function FileMenu({
   aiStatus,
 }: {
   onProjects: () => void;
+  onPhotoRoom: () => void;
   onReview: () => void;
   onLibrary: () => void;
   onOpen: () => void;
@@ -169,6 +172,7 @@ export function FileMenu({
         {open && (
           <div className="glass-panel mt-1.5 w-[260px] rounded-[12px] p-1">
             <Item icon={FolderOpen} label={t('Projects and versions')} onClick={run(onProjects)} />
+            <Item icon={ScanLine} label={t('Photo to 3D Room')} onClick={run(() => { trigger.current?.focus(); onPhotoRoom(); })} />
             <Item
               icon={FolderOpen}
               label={t("Open project…")}

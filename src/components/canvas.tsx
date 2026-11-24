@@ -225,13 +225,15 @@ type CanvasProps = {
   session: ProjectSession;
   initial: ProjectFile;
   blocked: boolean;
+  startInRoom?: boolean;
+  onPhotoRoom: () => void;
   onProjects: () => void;
   onImport: (project: ProjectFile, name: string) => Promise<void>;
   onReady: (handle: CanvasHandle | null) => void;
   onSaved: (session: ProjectSession) => Promise<void>;
 };
 
-function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady, onSaved }: CanvasProps) {
+function CanvasInner({ session, initial, blocked, startInRoom = false, onPhotoRoom, onProjects, onImport, onReady, onSaved }: CanvasProps) {
   const t = useT();
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
@@ -242,7 +244,7 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady,
   const [preview, setPreview] = useState<Point[]>([]);
   const [room, setRoom] = useState<RoomSpec>(DEFAULT_ROOM);
   const [roomItems, setRoomItems] = useState<RoomItem[]>([]);
-  const [showRoom, setShowRoom] = useState(false);
+  const [showRoom, setShowRoom] = useState(startInRoom);
   const [reviewLinks, setReviewLinks] = useState(false);
   const [exportState, setExportState] = useState<ExportTaskState>(null);
   const [exportTask] = useState(() => createExportTask(setExportState));
@@ -1814,6 +1816,7 @@ function CanvasInner({ session, initial, blocked, onProjects, onImport, onReady,
         </div>
         <FileMenu
           onProjects={onProjects}
+          onPhotoRoom={onPhotoRoom}
           onReview={() => setReview("drawing")}
           onLibrary={() => setLibraryOpen(true)}
           onOpen={() => projectInputRef.current?.click()}

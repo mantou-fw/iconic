@@ -3,7 +3,7 @@ import { RoomEditorForm, type RoomEdit, type RoomEditor, type RoomItemEdit } fro
 import type { DeviceIdentity } from "@/lib/device-identity";
 
 import { useT } from "@/lib/i18n";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import {
   Grid,
@@ -261,6 +261,30 @@ function Shell({ room }: { room: RoomSpec }) {
   );
 }
 
+/** One model for the review stage and the editable room. */
+function RoomScene({ room, items, selected, onSelect, register, shadows = false }: {
+  room: RoomSpec;
+  items: RoomItem[];
+  selected: string | null;
+  onSelect: (id: string) => void;
+  register?: (id: string, group: THREE.Group | null) => void;
+  shadows?: boolean;
+}) {
+  return <>
+    <hemisphereLight intensity={1.1} groundColor="#b8b8bd" />
+    <directionalLight position={[6, 9, 5]} intensity={1.5} castShadow={shadows} />
+    <directionalLight position={[-5, 4, -3]} intensity={0.4} />
+    <Shell room={room} />
+    {items.map((item) => <ItemMesh
+      key={item.id}
+      item={item}
+      selected={selected === item.id}
+      onSelect={() => onSelect(item.id)}
+      register={register}
+    />)}
+  </>;
+}
+
 /* ---------------------------------------------------------- view presets */
 
 export type ViewPreset = "iso" | "front" | "rear" | "left" | "right" | "top";
@@ -317,6 +341,47 @@ export function presetCamera(preset: ViewPreset, room: RoomSpec) {
   }
 }
 
+type PreviewView = Extract<ViewPreset, "front" | "iso" | "top">;
+type CameraPoint = [number, number, number];
+const PREVIEW_FOV = 44;
+
+/** Eye-level reference angle, or a plan/dollhouse framing fitted to the actual stage.
+ * The reference angle is only a visual aid, not a calibrated photo projection.
+ */
+export function roomPreviewCamera(view: PreviewView, room: RoomSpec, stageAspect: number): {
+  pos: CameraPoint; target: CameraPoint;
+} {
+  const { width: w, depth: d, height: h } = room;
+  const aspect = Math.max(0.25, stageAspect || 1);
+  const tanV = Math.tan(THREE.MathUtils.degToRad(PREVIEW_FOV / 2));
+  const tanH = tanV * aspect;
+  if (view === "front") {
+    return {
+      pos: [w / 2, h * 0.62, Math.max(d * 1.08, w * 0.55 / tanH, h * 0.56 / tanV)],
+      target: [w / 2, h * 0.49, d * 0.05],
+    };
+  }
+
+  const centre = new THREE.Vector3(w / 2, view === "top" ? 0 : h * 0.36, d / 2);
+  const direction = (view === "top"
+    ? new THREE.Vector3(0, 1, 0.002)
+    : new THREE.Vector3(0.82, 0.76, 1)).normalize();
+  const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), direction).normalize();
+  const up = new THREE.Vector3().crossVectors(direction, right);
+  let distance = 0;
+  for (const x of [0, w]) for (const y of [0, h]) for (const z of [0, d]) {
+    const point = new THREE.Vector3(x, y, z).sub(centre);
+    distance = Math.max(
+      distance,
+      point.dot(direction) + Math.max(Math.abs(point.dot(right)) / tanH, Math.abs(point.dot(up)) / tanV),
+    );
+  }
+  return {
+    pos: centre.clone().addScaledVector(direction, distance * 1.16).toArray(),
+    target: centre.toArray(),
+  };
+}
+
 /**
  * Eases the camera to the requested preset rather than snapping, so it stays
  * obvious which way the room turned. Runs inside the Canvas because it needs
@@ -327,6 +392,7 @@ function CameraRig({
   nonce,
   room,
   controls,
+  preview = false,
 }: {
   preset: ViewPreset;
   /** Bumped on every request, so re-picking the same view re-flies to it. */
@@ -336,35 +402,82 @@ function CameraRig({
     target: THREE.Vector3;
     update: () => void;
   } | null>;
+  preview?: boolean;
 }) {
-  const { camera } = useThree();
-  const goal = useRef<{ pos: THREE.Vector3; target: THREE.Vector3 } | null>(
-    null,
-  );
+  const camera = useThree((state) => state.camera);
+  const invalidate = useThree((state) => state.invalidate);
+  const aspect = useThree((state) => preview ? state.size.width / Math.max(1, state.size.height) : 1);
+  const goal = useRef<{ pos: THREE.Vector3; target: THREE.Vector3; instant: boolean } | null>(null);
 
   useEffect(() => {
-    const { pos, target } = presetCamera(preset, room);
+    const { pos, target } = preview
+      ? roomPreviewCamera(preset as PreviewView, room, aspect)
+      : presetCamera(preset, room);
     goal.current = {
-      pos: new THREE.Vector3(...(pos as [number, number, number])),
-      target: new THREE.Vector3(...(target as [number, number, number])),
+      pos: new THREE.Vector3().fromArray(pos),
+      target: new THREE.Vector3().fromArray(target),
+      instant: preview && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true,
     };
-  }, [preset, nonce, room]);
+    invalidate();
+  }, [preset, nonce, room, preview, aspect, invalidate]);
 
   useFrame((_, delta) => {
     const g = goal.current;
     if (!g) return;
-    // Frame-rate independent easing.
-    const k = 1 - Math.pow(0.0015, Math.min(delta, 0.1));
+    // Frame-rate independent easing, with a reduced-motion path for the preview.
+    const k = g.instant ? 1 : 1 - Math.pow(0.0015, Math.min(delta, 0.1));
     camera.position.lerp(g.pos, k);
     const c = controls.current;
     if (c) {
       c.target.lerp(g.target, k);
       c.update();
     }
-    if (camera.position.distanceTo(g.pos) < 0.01) goal.current = null;
+    if (camera.position.distanceTo(g.pos) < 0.01 && (!preview || !c || c.target.distanceTo(g.target) < 0.01)) {
+      goal.current = null;
+    } else if (preview) {
+      invalidate();
+    }
   });
 
   return null;
+}
+
+/** Read-only Three.js preview for a validated, unapplied photo room draft. */
+export function RoomOrbitPreview({ room, items, selected, onSelect, view, revision }: {
+  room: RoomSpec;
+  items: RoomItem[];
+  selected: string | null;
+  onSelect: (id: string | null) => void;
+  view: PreviewView;
+  revision: number;
+}) {
+  const controls = useRef<ComponentRef<typeof OrbitControls> | null>(null);
+  const [initial] = useState(() => roomPreviewCamera(view, room, 1.5));
+  const diag = Math.hypot(room.width, room.depth, room.height);
+  const camera = useMemo(() => ({
+    position: initial.pos,
+    fov: PREVIEW_FOV,
+    near: Math.max(0.005, diag / 1000),
+    far: Math.max(100, diag * 24),
+  }), [diag, initial]);
+
+  return <Canvas
+    frameloop="demand"
+    dpr={[1, 1.5]}
+    camera={camera}
+    onPointerMissed={() => onSelect(null)}
+  >
+    <RoomScene room={room} items={items} selected={selected} onSelect={onSelect} />
+    <CameraRig preset={view} nonce={revision} room={room} controls={controls} preview />
+    <OrbitControls
+      ref={controls}
+      target={initial.target}
+      maxPolarAngle={Math.PI / 2.05}
+      minDistance={diag * 0.06}
+      maxDistance={diag * 18}
+      makeDefault
+    />
+  </Canvas>;
 }
 
 /* --------------------------------------------------- reflected ceiling plan */
@@ -968,20 +1081,7 @@ export function RoomView({
             onPointerMissed={() => setSelected(null)}
           >
             <color attach="background" args={["#ececed"]} />
-            <hemisphereLight intensity={1.1} groundColor="#b8b8bd" />
-            <directionalLight position={[6, 9, 5]} intensity={1.5} castShadow />
-            <directionalLight position={[-5, 4, -3]} intensity={0.4} />
-
-            <Shell room={room} />
-            {items.map((item) => (
-              <ItemMesh
-                key={item.id}
-                item={item}
-                selected={selected === item.id}
-                onSelect={() => setSelected(item.id)}
-                register={register}
-              />
-            ))}
+            <RoomScene room={room} items={items} selected={selected} onSelect={setSelected} register={register} shadows />
 
             {attached && (
               <TransformControls
