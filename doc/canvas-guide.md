@@ -234,3 +234,28 @@ apply it to that device. Connected ports must remain present.
 A room template creates a separate project with new room item IDs. Links to
 schematic devices in the original project are cleared. Use **Export library**
 and **Import library** to transfer definitions and their version histories.
+
+## Photo to 3D Room
+
+Choose **iconic → Photo to 3D Room** from the schematic menu. The demo uses
+an original generated reference photo and a hand-authored nine-object layout.
+The table is 2.4 m long in the demo; other dimensions are provisional.
+Use **Compare** to blend the photo with the front model, then select
+**Dollhouse** or **Top** to inspect the editable geometry. Photo alignment is
+approximate, not a calibrated overlay or a survey.
+
+To review a real room:
+
+1. Select **Use your own photo** and open a local JPEG, PNG or WebP file.
+   If you know the room width, depth or height, enter the value in metres.
+2. Choose **Copy vision prompt**, then attach the same photo to a
+   vision-capable AI client of your choice and send it the prompt.
+   The client returns a draft in the existing iconic room-import JSON shape.
+   As always, share photos only with a client permitted to handle them.
+3. Paste the returned JSON, or load it from a JSON file, and select **Review
+   draft**. Check the objects and assumptions before using **Apply to new
+   project**. Then use the normal 3D editor to move, resize, add, or delete items.
+
+Iconic itself does not upload the photo, retain it in the new project, or
+modify the current project. The new project stores the room geometry and the
+draft's plain-text provenance. The existing MCP room tools are unchanged.

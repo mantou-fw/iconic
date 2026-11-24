@@ -1,7 +1,8 @@
 import { expect, test } from "vitest";
 
-import { presetCamera, VIEW_PRESETS, type ViewPreset } from "./room-view";
+import { presetCamera, roomPreviewCamera, VIEW_PRESETS, type ViewPreset } from "./room-view";
 import { DEFAULT_ROOM } from "@/lib/room";
+import * as THREE from "three";
 
 const room = { ...DEFAULT_ROOM, width: 6, depth: 5, height: 2.7 };
 const cam = (p: ViewPreset) => presetCamera(p, room);
@@ -61,4 +62,45 @@ test("placements scale with the room rather than being fixed", () => {
   const big = presetCamera("front", { ...room, width: 20, depth: 18 });
   const small = presetCamera("front", { ...room, width: 3, depth: 2.5 });
   expect(big.pos[2]!).toBeGreaterThan(small.pos[2]!);
+});
+
+function previewProjection(view: "iso" | "top" | "front", dimensions: typeof room, aspect: number) {
+  const { pos, target } = roomPreviewCamera(view, dimensions, aspect);
+  const camera = new THREE.PerspectiveCamera(44, aspect, 0.001, 10000);
+  camera.position.fromArray(pos);
+  camera.lookAt(new THREE.Vector3().fromArray(target));
+  camera.updateMatrixWorld(true);
+  return (x: number, y: number, z: number) => new THREE.Vector3(x, y, z).project(camera);
+}
+
+test.each([["iso", 1.5], ["iso", 0.65], ["top", 1.5], ["top", 0.65]] as const)(
+  "fits every room corner in the %s preview at a %f aspect",
+  (view, aspect) => {
+    const dimensions = { ...room, width: 4.2, depth: 6, height: 2.75 };
+    const project = previewProjection(view, dimensions, aspect);
+    for (const x of [0, dimensions.width]) {
+      for (const y of [0, dimensions.height]) {
+        for (const z of [0, dimensions.depth]) {
+          const point = project(x, y, z);
+          expect(Math.abs(point.x)).toBeLessThan(0.94);
+          expect(Math.abs(point.y)).toBeLessThan(0.94);
+        }
+      }
+    }
+  },
+);
+
+test("the front preview is centred at eye level and fits the display wall", () => {
+  const { pos, target } = roomPreviewCamera("front", room, 1.5);
+  expect(pos[0]).toBe(room.width / 2);
+  expect(pos[1]).toBeGreaterThan(1.4);
+  expect(pos[1]).toBeLessThan(1.8);
+  expect(pos[2]).toBeGreaterThan(room.depth);
+  expect(target[2]).toBeLessThan(room.depth / 3);
+  const project = previewProjection("front", room, 1.5);
+  for (const x of [0, room.width]) for (const y of [0, room.height]) {
+    const p = project(x, y, 0);
+    expect(Math.abs(p.x)).toBeLessThan(1);
+    expect(Math.abs(p.y)).toBeLessThan(1);
+  }
 });
