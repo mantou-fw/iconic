@@ -26,6 +26,7 @@ import * as THREE from "three";
 import {
   clampRoomPosition,
   isDeviceKind,
+  roomPlanRotation,
   type ItemKind,
   type RoomItem,
   type RoomSpec,
@@ -542,7 +543,7 @@ function CeilingPlan({
             height={i.size.d * S}
             className="below pick"
             onPointerDown={(e) => beginDrag(e, i)}
-            transform={`rotate(${i.rotation} ${pad + i.position.x * S} ${pad + i.position.z * S})`}
+            transform={`rotate(${roomPlanRotation(i.rotation)} ${pad + i.position.x * S} ${pad + i.position.z * S})`}
           >
             <title>{`${i.label} — drag to move in plan`}</title>
           </rect>

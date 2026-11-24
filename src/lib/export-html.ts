@@ -14,7 +14,7 @@ import {
   signalColor,
   type SignalDef,
 } from "./signal-types";
-import type { RoomItem, RoomSpec } from "./room";
+import { roomPlanRotation, type RoomItem, type RoomSpec } from "./room";
 import type {
   AVDeviceData,
   DevicePort,
@@ -213,7 +213,7 @@ function simpleNodeSvg(n: Node, at: { x: number; y: number }, tags: ReadonlyMap<
   if (
     n.type === "image" &&
     typeof data.src === "string" &&
-    /^data:image\/(?:png|jpeg|gif|webp|avif|bmp|x-icon|vnd\.microsoft\.icon|svg\+xml);base64,[a-z0-9+/]+={0,2}$/i.test(data.src)
+    /^data:image\/(?:png|apng|jpeg|gif|webp|avif|bmp|x-icon|vnd\.microsoft\.icon|svg\+xml);base64,[a-z0-9+/]+={0,2}$/i.test(data.src)
   ) {
     return `<image x="${at.x}" y="${at.y}" width="${w}" height="${h}" href="${esc(data.src)}" preserveAspectRatio="xMidYMid meet"/>`;
   }
@@ -412,7 +412,9 @@ function cableSvg(edge: Edge, ctx: Ctx) {
 
 /* ----------------------------------------------------------- room plan */
 
-function roomPlanSvg(room: RoomSpec, items: RoomItem[]) {
+type PlanItem = RoomItem & { mountLabel: string };
+
+function roomPlanSvg(room: RoomSpec, items: PlanItem[]) {
   const S = 90; // pixels per metre
   const pad = 40;
   const width = finite(room.width, 0);
@@ -444,11 +446,11 @@ function roomPlanSvg(room: RoomSpec, items: RoomItem[]) {
       const cy = pad + item.position.z * S;
       const wall = item.mount === "wall" || item.mount === "ceiling";
       return `<g class="plan-item" data-id="${esc(item.id)}" tabindex="0"
-        transform="rotate(${finite(item.rotation, 0)} ${cx} ${cy})">
+        transform="rotate(${roomPlanRotation(item.rotation)} ${cx} ${cy})">
     <rect x="${cx - iw / 2}" y="${cy - id / 2}" width="${iw}" height="${id}" rx="3"
           fill="${safeColor(item.color, "#94a3b8")}" fill-opacity="${wall ? 0.95 : 0.75}"
           stroke="${wall ? "#0071e3" : "rgba(0,0,0,.35)"}" stroke-width="${wall ? 1.6 : 1}"/>
-    <title>${esc(item.label)}${item.tag ? ` (${esc(item.tag)})` : ""} — ${esc(item.mount)} @ ${finite(item.position.y, 0).toFixed(2)}m</title>
+    <title>${esc(item.label)}${item.tag ? ` (${esc(item.tag)})` : ""} — ${esc(item.mountLabel)} @ ${finite(item.position.y, 0).toFixed(2)}m</title>
   </g>`;
     })
     .join("\n");
@@ -558,6 +560,7 @@ export function buildViewerHtml({
   const roomItems = projectRoomItems.map((item) => ({
     ...item,
     color: safeColor(item.color, "#94a3b8"),
+    mountLabel: t(item.mount),
   }));
   const absolute = (node: Node) => {
     const { x, y } = getAbsolute(node);
@@ -1008,15 +1011,15 @@ export function buildViewerHtml({
     var DEV = ["tv","projector","screen","speaker","subwoofer","rack","camera","keypad"];
     function group(title, arr){
       if (!arr.length) return "";
-      return '<div class="grp">' + title + "</div>" + arr.map(function(i){
+      return '<div class="grp">' + escapeHtml(title) + "</div>" + arr.map(function(i){
         return '<button data-id="' + escapeHtml(i.id) + '">' +
           '<span class="sw" style="background:' + escapeHtml(i.color || "#94a3b8") + '"></span>' +
-          escapeHtml(i.label) + '<span class="mt">' + escapeHtml(i.mount) + "</span></button>";
+          escapeHtml(i.label) + '<span class="mt">' + escapeHtml(i.mountLabel) + "</span></button>";
       }).join("");
     }
     list.innerHTML =
-      group("Devices", ITEMS.filter(function(i){ return DEV.indexOf(i.kind) >= 0; })) +
-      group("Furniture", ITEMS.filter(function(i){ return DEV.indexOf(i.kind) < 0; })) +
+      group(${json(t("Devices"))}, ITEMS.filter(function(i){ return DEV.indexOf(i.kind) >= 0; })) +
+      group(${json(t("Furniture"))}, ITEMS.filter(function(i){ return DEV.indexOf(i.kind) < 0; })) +
       '<div id="planinfo" style="margin-top:10px;border-top:1px solid var(--line);padding-top:8px;display:none"></div>';
 
     var info = document.getElementById("planinfo");
@@ -1028,10 +1031,10 @@ export function buildViewerHtml({
       info.innerHTML = "<b>" + escapeHtml(it.label) + "</b>" +
         (it.tag ? ' <span style="color:var(--accent);font-family:ui-monospace,Menlo,monospace">' + escapeHtml(it.tag) + "</span>" : "") +
         '<div style="color:var(--muted);font-size:11px;margin-top:4px">' +
-        "Mount: " + escapeHtml(it.mount) + "<br>" +
-        "Height: " + it.position.y.toFixed(2) + " m<br>" +
-        "Position: " + it.position.x.toFixed(2) + ", " + it.position.z.toFixed(2) + " m<br>" +
-        "Size: " + escapeHtml(it.size.w) + "×" + escapeHtml(it.size.h) + "×" + escapeHtml(it.size.d) + " m" +
+        escapeHtml(${json(t("Mount"))}) + ": " + escapeHtml(it.mountLabel) + "<br>" +
+        escapeHtml(${json(t("Height"))}) + ": " + it.position.y.toFixed(2) + " m<br>" +
+        escapeHtml(${json(t("Position"))}) + ": " + it.position.x.toFixed(2) + ", " + it.position.z.toFixed(2) + " m<br>" +
+        escapeHtml(${json(t("Size"))}) + ": " + escapeHtml(it.size.w) + "×" + escapeHtml(it.size.h) + "×" + escapeHtml(it.size.d) + " m" +
         (it.note ? "<br><br>" + escapeHtml(it.note) : "") + "</div>";
     }
     list.querySelectorAll("button").forEach(function(b){ b.onclick = function(){ selectItem(b.dataset.id); }; });
